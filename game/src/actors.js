@@ -17,6 +17,7 @@ function brick(w, h, d, color, opts = {}) {
     new T.MeshPhongMaterial({
       color,
       shininess: opts.shine ?? 12,
+      specular: opts.spec ?? 0x111111,
       emissive: opts.emissive ?? 0x000000,
       emissiveIntensity: opts.ei ?? 1,
     })
@@ -217,10 +218,24 @@ const CIVIL_LIVERY = [0xb0bec5, 0x546e7a, 0x8e24aa, 0x00897b, 0x3949ab, 0x6d4c41
 
 function tyre(r = 0.34) {
   const w = new T.Mesh(
-    new T.CylinderGeometry(r, r, 0.22, 12),
+    new T.CylinderGeometry(r, r, 0.22, 14),
     new T.MeshPhongMaterial({ color: 0x0c0d10, shininess: 40 })
   );
   w.rotation.z = Math.PI / 2; // cylinder axis across the car
+  // Hubcap: a steel disc riding proud of both faces, with a dark
+  // centre cap — the two-tone read is what makes a wheel read as a
+  // wheel (not a black puck) at street distance. Children of the
+  // tyre mesh, so spinWheels rolls them for free.
+  const hub = new T.Mesh(
+    new T.CylinderGeometry(r * 0.54, r * 0.54, 0.25, 12),
+    new T.MeshPhongMaterial({ color: 0x8d99a6, shininess: 95, specular: 0xdfe9f5 })
+  );
+  w.add(hub);
+  const cap = new T.Mesh(
+    new T.CylinderGeometry(r * 0.2, r * 0.2, 0.27, 8),
+    new T.MeshPhongMaterial({ color: 0x23282f, shininess: 60 })
+  );
+  w.add(cap);
   return w;
 }
 
@@ -242,6 +257,51 @@ function headlights(group, x, y, z, spread = 0.62) {
   }
 }
 
+// ------------------------------------------------------------ car detail kit
+// The dressing that makes a box read as a VEHICLE: glossy slanted
+// glass, tail lamps, mirrors, bumper bands. Every piece is sized to
+// sit INSIDE the kind's existing length/width/height envelope — the
+// physics footprint (userData.len, wheel marks) never changes.
+const GLASS_OPTS = { shine: 130, spec: 0xcfe2ff };
+const GLASS_COLOR = 0x0d1826;
+
+// A slanted windshield / rear glass panel. tilt > 0 leans the top
+// edge rearward (front glass); tilt < 0 leans it forward (rear glass).
+function glassPanel(group, w, h, x, y, z, tilt) {
+  const m = brick(w, h, 0.05, GLASS_COLOR, GLASS_OPTS);
+  m.rotation.x = tilt;
+  m.position.set(x, y, z);
+  group.add(m);
+  return m;
+}
+
+// Two small emissive tail lamps at the rear corners.
+function taillights(group, y, z, spread = 0.66) {
+  for (const side of [-1, 1]) {
+    const lamp = brick(0.3, 0.11, 0.05, 0xff2015, { emissive: 0xcc1105, ei: 2 });
+    lamp.position.set(side * spread, y, z);
+    group.add(lamp);
+  }
+}
+
+// Mirror heads mounted flush at the A-pillar sides — they silhouette
+// against the body edge from the front without widening the car.
+function mirrors(group, y, z, halfW, color = 0x14181f) {
+  for (const side of [-1, 1]) {
+    const m = brick(0.15, 0.1, 0.07, color, { shine: 50 });
+    m.position.set(side * (halfW - 0.06), y, z);
+    group.add(m);
+  }
+}
+
+// A charcoal bumper band across one end, face flush with the body.
+function bumperBand(group, y, z, w) {
+  const m = brick(w, 0.17, 0.06, 0x14181d, { shine: 25 });
+  m.position.set(0, y, z);
+  group.add(m);
+  return m;
+}
+
 export function makeCarMesh(kind, color) {
   const g = new T.Group();
   const wheels = [];
@@ -255,10 +315,16 @@ export function makeCarMesh(kind, color) {
     const c = color ?? pick(ANGKOT_LIVERY);
     const bodyM = brick(1.85, 1.15, 3.9, c, { shine: 60 }); bodyM.position.y = 0.95; g.add(bodyM);
     const roof = brick(1.9, 0.14, 3.95, 0xf5f5f5, { shine: 40 }); roof.position.y = 1.6; g.add(roof);
-    const glass = brick(1.87, 0.5, 3.2, 0x10222e, { shine: 90 }); glass.position.y = 1.24; g.add(glass);
+    const glass = brick(1.87, 0.5, 3.2, 0x10222e, { shine: 120, spec: 0xcfe2ff }); glass.position.y = 1.24; g.add(glass);
     const front = plate('TERMINAL — PASAR', 1.5, 0.34, '#06121a', '#ffd54f', 58);
     front.position.set(0, 1.32, 1.99); g.add(front);
     const back = front.clone(); back.rotation.y = Math.PI; back.position.z = -1.99; g.add(back);
+    // Dressing: a real windshield on the flat front, tail lamps,
+    // mirrors at the glass line, bumper bands both ends.
+    glassPanel(g, 1.6, 0.52, 0, 1.26, 1.94, 0.08);
+    taillights(g, 0.55, -1.94, 0.7);
+    mirrors(g, 1.3, 1.8, 0.95, c);
+    bumperBand(g, 0.42, 1.93, 1.8); bumperBand(g, 0.42, -1.93, 1.8);
     mountWheel(-0.85, 0.34, 1.25); mountWheel(0.85, 0.34, 1.25);
     mountWheel(-0.85, 0.34, -1.25); mountWheel(0.85, 0.34, -1.25);
     headlights(g, 0, 0.62, 1.95);
@@ -268,15 +334,25 @@ export function makeCarMesh(kind, color) {
     const c = color ?? 0xff9100;
     const bodyM = brick(1.35, 0.8, 2.2, c, { shine: 55 }); bodyM.position.y = 0.72; g.add(bodyM);
     const canopy = brick(1.45, 0.5, 1.5, 0x21262e, { shine: 20 }); canopy.position.set(0, 1.32, -0.25); g.add(canopy);
-    const shield = brick(1.2, 0.55, 0.08, 0x9fd8e8, { shine: 90 }); shield.position.set(0, 1.15, 0.95); g.add(shield);
+    const shield = brick(1.2, 0.55, 0.08, 0x9fd8e8, { shine: 110, spec: 0xe8f6ff }); shield.position.set(0, 1.15, 0.95); g.add(shield);
+    // Dressing: one centre tail lamp + mirrors flanking the shield.
+    const tailB = brick(0.22, 0.1, 0.05, 0xff2015, { emissive: 0xcc1105, ei: 2 });
+    tailB.position.set(0, 0.62, -1.09); g.add(tailB);
+    mirrors(g, 1.28, 0.88, 0.68, c);
     mountWheel(0, 0.3, 1.0, 0.3); mountWheel(-0.62, 0.3, -0.8, 0.3); mountWheel(0.62, 0.3, -0.8, 0.3);
     headlights(g, 0, 0.6, 1.1, 0.3);
     len = 2.3;
   } else if (kind === 'bus') {
     const bodyM = brick(2.3, 2.2, 9.4, color ?? 0x26a69a, { shine: 45 }); bodyM.position.y = 1.5; g.add(bodyM);
-    const glass = brick(2.32, 0.8, 8.6, 0x10222e, { shine: 90 }); glass.position.y = 1.95; g.add(glass);
+    const glass = brick(2.32, 0.8, 8.6, 0x10222e, { shine: 120, spec: 0xcfe2ff }); glass.position.y = 1.95; g.add(glass);
     const sign = plate('GERIMIS TRANS', 2.6, 0.5, '#e0fff5', '#00695c', 62);
     sign.position.set(0, 2.2, 4.72); g.add(sign);
+    // Dressing: windshield under the destination board, tail lamps,
+    // mirrors, bumper bands.
+    glassPanel(g, 2.0, 0.85, 0, 1.8, 4.68, 0.05);
+    taillights(g, 0.7, -4.68, 0.9);
+    mirrors(g, 2.0, 4.55, 1.15, color ?? 0x26a69a);
+    bumperBand(g, 0.45, 4.68, 2.2); bumperBand(g, 0.45, -4.68, 2.2);
     mountWheel(-1.0, 0.48, 3.1, 0.48); mountWheel(1.0, 0.48, 3.1, 0.48);
     mountWheel(-1.0, 0.48, -3.1, 0.48); mountWheel(1.0, 0.48, -3.1, 0.48);
     headlights(g, 0, 0.8, 4.7, 0.8);
@@ -284,12 +360,16 @@ export function makeCarMesh(kind, color) {
   } else if (kind === 'truk') {
     // Sayur truck: cab + open bed with vegetable crates.
     const cab = brick(1.8, 1.1, 1.6, color ?? 0x43a047, { shine: 50 }); cab.position.set(0, 0.95, 1.5); g.add(cab);
-    const glass = brick(1.7, 0.5, 0.1, 0x10222e, { shine: 90 }); glass.position.set(0, 1.2, 2.31); g.add(glass);
+    const glass = brick(1.7, 0.5, 0.1, 0x10222e, { shine: 120, spec: 0xcfe2ff }); glass.position.set(0, 1.2, 2.31); g.add(glass);
     const bed = brick(1.9, 0.55, 2.6, 0x6d4c41); bed.position.set(0, 0.75, -0.9); g.add(bed);
     for (let i = 0; i < 5; i++) {
       const crate = brick(0.5, 0.4, 0.5, pick([0x66bb6a, 0xffa726, 0xef5350, 0xab47bc]));
       crate.position.set(rand(-0.6, 0.6), 1.2, rand(-2, 0.2)); g.add(crate);
     }
+    // Dressing: cab mirrors, a front bumper band, tail lamps on the bed.
+    mirrors(g, 1.25, 2.2, 0.9, color ?? 0x43a047);
+    bumperBand(g, 0.45, 2.28, 1.7);
+    taillights(g, 0.6, -2.17, 0.75);
     mountWheel(-0.85, 0.36, 1.5); mountWheel(0.85, 0.36, 1.5);
     mountWheel(-0.85, 0.36, -1.4); mountWheel(0.85, 0.36, -1.4);
     headlights(g, 0, 0.66, 2.3);
@@ -297,7 +377,7 @@ export function makeCarMesh(kind, color) {
   } else if (kind === 'cruiser') {
     // POLRESTA interceptor: white body, blue stripe, red/blue light bar.
     const bodyM = brick(1.85, 0.55, 4.4, 0xf2f4f6, { shine: 80 }); bodyM.position.y = 0.62; g.add(bodyM);
-    const cabin = brick(1.65, 0.5, 2.2, 0x14202e, { shine: 90 }); cabin.position.set(0, 1.12, -0.2); g.add(cabin);
+    const cabin = brick(1.65, 0.5, 2.2, 0x14202e, { shine: 120, spec: 0xcfe2ff }); cabin.position.set(0, 1.12, -0.2); g.add(cabin);
     const stripe = brick(1.87, 0.2, 4.42, 0x1d4ed8); stripe.position.y = 0.6; g.add(stripe);
     const badge = plate('POLRESTA', 1.5, 0.3, '#ffffff', '#1d4ed8', 66);
     badge.position.set(0, 0.86, 2.21); g.add(badge);
@@ -306,6 +386,15 @@ export function makeCarMesh(kind, color) {
     const barR = brick(0.5, 0.13, 0.3, 0x2266ff, { emissive: 0x2266ff, ei: 2.6 }); barR.position.x = 0.3; bar.add(barR);
     bar.position.set(0, 1.46, -0.2); g.add(bar);
     g.userData.lightBar = bar;
+    // Dressing: the cabin becomes a glasshouse — slanted windshield
+    // and rear glass over the dark band, a white roof slab on top,
+    // tail lamps, mirrors, bumper bands.
+    glassPanel(g, 1.5, 0.55, 0, 1.1, 0.82, 0.45);
+    glassPanel(g, 1.5, 0.55, 0, 1.1, -1.22, -0.45);
+    const roofC = brick(1.6, 0.05, 1.1, 0xf2f4f6, { shine: 60 }); roofC.position.set(0, 1.34, -0.2); g.add(roofC);
+    taillights(g, 0.62, -2.17, 0.68);
+    mirrors(g, 1.05, 0.85, 0.925, 0xf2f4f6);
+    bumperBand(g, 0.4, 2.17, 1.8); bumperBand(g, 0.4, -2.17, 1.8);
     mountWheel(-0.85, 0.34, 1.45); mountWheel(0.85, 0.34, 1.45);
     mountWheel(-0.85, 0.34, -1.45); mountWheel(0.85, 0.34, -1.45);
     headlights(g, 0, 0.62, 2.2);
@@ -315,9 +404,15 @@ export function makeCarMesh(kind, color) {
     // focal point and must read instantly at thumbnail size.
     const bodyM = brick(1.8, 0.42, 4.3, PAL.heroRed, { shine: 110 }); bodyM.position.y = 0.52; g.add(bodyM);
     const nose = brick(1.7, 0.3, 0.9, 0xd50000, { shine: 110 }); nose.position.set(0, 0.44, 2.3); g.add(nose);
-    const cabin = brick(1.5, 0.42, 1.9, 0x0d141d, { shine: 100 }); cabin.position.set(0, 0.92, -0.3); g.add(cabin);
+    const cabin = brick(1.5, 0.42, 1.9, 0x0d141d, { shine: 130, spec: 0xcfe2ff }); cabin.position.set(0, 0.92, -0.3); g.add(cabin);
     const spoiler = brick(1.7, 0.07, 0.4, 0x14181f); spoiler.position.set(0, 0.98, -2.05); g.add(spoiler);
     const tail = brick(1.6, 0.12, 0.06, 0xff5252, { emissive: 0xff1744, ei: 2.4 }); tail.position.set(0, 0.66, -2.16); g.add(tail);
+    // Dressing: raked windshield and a sloping rear glass over the
+    // cabin, mirrors, a rear bumper band.
+    glassPanel(g, 1.4, 0.46, 0, 0.9, 0.62, 0.5);
+    glassPanel(g, 1.4, 0.46, 0, 0.92, -1.3, -0.55);
+    mirrors(g, 0.85, 0.6, 0.9, 0x14181f);
+    bumperBand(g, 0.42, -2.12, 1.7);
     mountWheel(-0.82, 0.33, 1.4, 0.33); mountWheel(0.82, 0.33, 1.4, 0.33);
     mountWheel(-0.82, 0.33, -1.4, 0.33); mountWheel(0.82, 0.33, -1.4, 0.33);
     headlights(g, 0, 0.55, 2.6, 0.6);
@@ -327,8 +422,18 @@ export function makeCarMesh(kind, color) {
     const c = color ?? pick(CIVIL_LIVERY);
     const isHatch = kind === 'hatch';
     const bodyM = brick(1.78, 0.55, isHatch ? 3.6 : 4.3, c, { shine: 70 }); bodyM.position.y = 0.62; g.add(bodyM);
-    const cabin = brick(1.6, 0.5, isHatch ? 2.2 : 2.1, 0x101c26, { shine: 90 });
+    const cabin = brick(1.6, 0.5, isHatch ? 2.2 : 2.1, 0x101c26, { shine: 120, spec: 0xcfe2ff });
     cabin.position.set(0, 1.1, isHatch ? -0.3 : -0.15); g.add(cabin);
+    // Dressing: slanted windshield + rear glass, a body-colour roof
+    // slab, tail lamps, mirrors, bumper bands.
+    const cabFront = isHatch ? 0.8 : 0.9, cabRear = isHatch ? -1.4 : -1.2;
+    glassPanel(g, 1.45, 0.5, 0, 1.08, cabFront - 0.04, 0.48);
+    glassPanel(g, 1.45, 0.5, 0, 1.08, cabRear + 0.04, -0.48);
+    const roofS = brick(1.55, 0.05, 1.2, c, { shine: 70 }); roofS.position.set(0, 1.32, isHatch ? -0.3 : -0.15); g.add(roofS);
+    const halfD = (isHatch ? 3.6 : 4.3) / 2;
+    taillights(g, 0.62, -halfD + 0.03);
+    mirrors(g, 1.0, cabFront - 0.15, 0.89, c);
+    bumperBand(g, 0.42, halfD - 0.03, 1.72); bumperBand(g, 0.42, -halfD + 0.03, 1.72);
     mountWheel(-0.82, 0.33, 1.35, 0.33); mountWheel(0.82, 0.33, 1.35, 0.33);
     mountWheel(-0.82, 0.33, -1.35, 0.33); mountWheel(0.82, 0.33, -1.35, 0.33);
     headlights(g, 0, 0.6, (isHatch ? 3.6 : 4.3) / 2);
