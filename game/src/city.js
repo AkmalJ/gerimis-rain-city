@@ -617,14 +617,18 @@ function buildPasar(world) {
   neonSign(world, 'PASAR KABUT', 'SAYUR • IKAN • REMPAH — BUKA 24 JAM', '#ff2e88', '#170510', 21, cx + 17, 7.6, cz - 26, Math.PI);
   const awningPalette = [0xd81b60, 0x00897b, 0xf9a825, 0x5e35b1, 0xc62828, 0x2e7d32];
   const goodsPalette = [0x66bb6a, 0xff7043, 0xffee58, 0xab47bc, 0x26c6da];
-  // Three aisles of five stalls: counter, tilted awning, posts, goods,
-  // a warm bulb glow and a light pool on the wet floor per stall.
+  // Three aisles of eight stalls: counter, tilted awning, posts,
+  // goods, a warm bulb glow and a light pool on the wet floor per
+  // stall. REV10: the owner asked for the rows packed tighter
+  // ("kiosnya dibikin lebih berdempetan") — spacing 15 → 8.6 puts
+  // eight stalls in the same run, awnings nearly touching, so the
+  // market reads as one dense wall down both sides of an aisle.
   for (let row = 0; row < 3; row++) {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 8; i++) {
       // Item-15: columns shifted +37 east — at cx-30 the x=185 and
       // x=200 columns stood in the x=190 road. The market now fills
       // its block (x 204..270); the old west ground stays as apron.
-      const x = cx + 7 + i * 15, z = cz - 18 + row * 17;
+      const x = cx + 7 + i * 8.6, z = cz - 18 + row * 17;
       const counter = new T.Mesh(new T.BoxGeometry(5.6, 1.1, 2.6), new T.MeshPhongMaterial({ color: 0x5d4037 }));
       counter.position.set(x, 0.55, z); world.add(counter);
       const awning = new T.Mesh(
@@ -651,6 +655,19 @@ function buildPasar(world) {
       addCollider(x, z, 3, 1.6);
     }
   }
+  // REV10 backdrop — the owner: the buildings flanking and behind
+  // the market must read as real lit buildings, not empty night.
+  // The generic fillBlocks skyline is random per load and left the
+  // market's east horizon bare, so the market block gets its own
+  // guaranteed towers: a row closing the block's east edge (behind
+  // the stalls from any west view) and one flank each north/south.
+  // All inside the pasar block (x ≤ 284, clear of the x=285 road),
+  // clear of the stall rows, full tower() dressing + colliders.
+  tower(world, 273, 12, 10, 30, 13, '#232d3d');
+  tower(world, 273, 52, 10, 38, 13, '#28303f');
+  tower(world, 273, 80, 10, 26, 13, '#1f2733');
+  tower(world, 246, 10, 16, 24, 12, '#26303e');
+  tower(world, 250, 80, 15, 33, 12, '#222b38');
 }
 
 // ------------------------------------------------------------ warung stall

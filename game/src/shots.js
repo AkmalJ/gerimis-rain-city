@@ -7,7 +7,7 @@
 
 const T = window.THREE;
 import { pick } from './config.js';
-import { giveGun, gunMuzzleWorld } from './actors.js';
+import { giveGun, gunMuzzleWorld, animatePed } from './actors.js';
 
 // The showcase save every in-world case shares: a Damar who has clearly
 // been busy — money in the bank, five jobs closed, most parcels found,
@@ -463,13 +463,103 @@ export function installStaging(api) {
       player.mesh.rotation.y = Math.PI / 2;
       player.aimBlend = 1;
       const firingLine = [[215, 49.5], [219, 55.5], [226, 50], [231, 55], [236, 51], [240, 54.5]];
+      const gunmen = [];
       firingLine.forEach(([gx, gz], i) => {
         const gunman = api.pedEntity('gang', { gang: true, marker: true }, gx, gz, -Math.PI / 2);
         giveGun(gunman.mesh, pick(['smg', 'p9', 'smg']));
         gunman.hostile = true;
         gunman.fireCd = 0.3 + i * 0.22; // staggered: return fire overlaps the hero's burst
         api.gangs.push(gunman);
+        gunmen.push(gunman);
       });
+      // REV10 floor dressing — the rev9 frame's aisle floor read as
+      // bare dark asphalt ("masih kosong"). Wet-market floor life,
+      // spread foreground → far so the lane reads dressed at dossier
+      // size: puddles with neon reflection streaks and ripple rings,
+      // a worn painted guide line, crates and sacks at the stall
+      // fronts, woven mat runners, paper scraps, one tipped basket.
+      // Pure staging meshes — no entities, no colliders, plain play
+      // never sees them.
+      {
+        const flat = (geo, mat, x, z, ry = 0, y = 0.02) => {
+          const m = new T.Mesh(geo, mat);
+          m.rotation.x = -Math.PI / 2; m.rotation.z = ry;
+          m.position.set(x, y, z); scene.add(m); return m;
+        };
+        const puddleMat = new T.MeshBasicMaterial({ color: 0x14273d, transparent: true, opacity: 0.82 });
+        const rippleMat = new T.MeshBasicMaterial({ color: 0xbfd9e8, transparent: true, opacity: 0.16, side: T.DoubleSide });
+        const puddles = [[209, 51.0, 2.4, 0x18c8b8], [217.5, 54.8, 1.7, 0xffb347], [224, 50.6, 2.7, 0xff4fa3], [233, 53.6, 1.9, 0x18c8b8], [241, 51.8, 2.2, 0xffb347]];
+        for (const [px, pz, r, tint] of puddles) {
+          flat(new T.CircleGeometry(r, 22), puddleMat, px, pz, 0, 0.015);
+          // neon reflection: a broken bright streak stretched on the water
+          const streakMat = new T.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.30, blending: T.AdditiveBlending });
+          flat(new T.PlaneGeometry(0.34, r * 1.5), streakMat, px + 0.3, pz - 0.2, 0.12, 0.03);
+          flat(new T.RingGeometry(r * 0.30, r * 0.34, 22), rippleMat, px - r * 0.3, pz + r * 0.25, 0, 0.032);
+          flat(new T.RingGeometry(r * 0.55, r * 0.58, 22), rippleMat, px + r * 0.2, pz - r * 0.3, 0, 0.032);
+        }
+        // worn painted guide line down the lane, in dashed segments
+        const paintMat = new T.MeshBasicMaterial({ color: 0xd8b93a, transparent: true, opacity: 0.30 });
+        for (let i = 0; i < 6; i++) flat(new T.PlaneGeometry(2.6, 0.26), paintMat, 210 + i * 6.2, 52.6, 0, 0.018);
+        // mat runners in front of two stalls
+        flat(new T.PlaneGeometry(3.0, 1.5), new T.MeshBasicMaterial({ color: 0x7a2436, transparent: true, opacity: 0.9 }), 214, 46.9, 0.06, 0.022);
+        flat(new T.PlaneGeometry(3.0, 1.5), new T.MeshBasicMaterial({ color: 0x1f5f57, transparent: true, opacity: 0.9 }), 228, 58.3, -0.05, 0.022);
+        // crates + sacks at the stall fronts, both sides of the lane
+        const crateMat = new T.MeshStandardMaterial({ color: 0x7a5a38, roughness: 0.9 });
+        const crateMat2 = new T.MeshStandardMaterial({ color: 0x5d4630, roughness: 0.9 });
+        const sackMat = new T.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 1 });
+        const box = (mat, s, x, y, z, ry) => {
+          const m = new T.Mesh(new T.BoxGeometry(s, s, s), mat);
+          m.position.set(x, y, z); m.rotation.y = ry; scene.add(m);
+        };
+        box(crateMat, 0.72, 211.5, 0.36, 58.6, 0.3); box(crateMat2, 0.6, 211.6, 0.96, 58.5, 0.8);
+        box(crateMat2, 0.68, 221, 0.34, 46.6, 0.15); box(crateMat, 0.72, 230.5, 0.36, 58.8, 0.5);
+        box(crateMat, 0.64, 238, 0.32, 46.8, 0.2);
+        const sack = (x, z, s) => {
+          const m = new T.Mesh(new T.SphereGeometry(0.55, 10, 8), sackMat);
+          m.scale.set(s, s * 0.62, s); m.position.set(x, 0.32 * s, z); scene.add(m);
+        };
+        sack(218.5, 58.9, 1); sack(219.3, 59.2, 0.8); sack(235.5, 46.5, 0.95);
+        // paper scraps scattered down the lane
+        const paperMat = new T.MeshBasicMaterial({ color: 0xb9c4cc, transparent: true, opacity: 0.75, side: T.DoubleSide });
+        [[207, 54.5, 0.4], [213, 50.8, 1.2], [220, 53.4, 2.1], [227, 51.5, 0.9], [232, 55.0, 1.7], [238, 52.2, 2.8], [243, 54.0, 0.2]].forEach(([px, pz, ry]) => {
+          flat(new T.PlaneGeometry(0.34, 0.44), paperMat, px, pz, ry, 0.025);
+        });
+        // one tipped basket spilling by the near stall
+        const basket = new T.Mesh(new T.CylinderGeometry(0.34, 0.26, 0.5, 10, 1, true), new T.MeshStandardMaterial({ color: 0xc96a2c, roughness: 0.95, side: T.DoubleSide }));
+        basket.position.set(212.8, 0.27, 47.3); basket.rotation.z = Math.PI / 2.2; basket.rotation.y = 0.6; scene.add(basket);
+      }
+      // REV10 ally — Sari fights beside Damar ("tambahin temen kita
+      // 1"). Her magenta shirt (her real crew colours from main.js)
+      // reads unmistakably friendly against the gang's dark kit, and
+      // she stands on the camera side of Damar, large in the left
+      // foreground, gun up and aimed down the same lane.
+      const ally = api.pedEntity('crew', { shirt: 0xc2185b, pants: 0x23272e }, 206.2, 55.0, Math.PI / 2);
+      giveGun(ally.mesh, 'smg');
+      ally.aimBlend = 1;
+      // No loop animates a staging-spawned crew ped, so lock the aim
+      // pose onto her arms directly — gun up at shoulder height, or
+      // her muzzle (and its star) sits at her thigh.
+      animatePed(ally.mesh, 0, 0.016, 1);
+      // The capture script calls this beside duelVolley() so her
+      // burst leaves in the same instant as Damar's: muzzle star +
+      // a streak of her own at the nearest gunman.
+      window.__gerimisDebug.allyVolley = () => {
+        animatePed(ally.mesh, 0, 0.016, 1); // re-lock the aim pose at the instant of fire
+        const muzzle = gunMuzzleWorld(ally.mesh);
+        if (!muzzle) return;
+        let target = null, best = 1e9;
+        for (const g of gunmen) {
+          if (!g.alive) continue;
+          const d = ally.mesh.position.distanceTo(g.mesh.position);
+          if (d < best) { best = d; target = g; }
+        }
+        if (!target) return;
+        const chest = target.mesh.position.clone(); chest.y += 1.15;
+        const from = muzzle.clone();
+        const dir = chest.clone().sub(from).normalize();
+        fx.muzzleStar(from.clone(), 1.0);
+        fx.fireStreak(from, dir, from.distanceTo(chest), 125, () => fx.impactBurst(chest, 5));
+      };
       // Over Damar's right shoulder from the aisle's south side, low:
       // looking east, screen-right runs along +z, so the camera sits at
       // the higher z to hold the hero large and whole at the LEFT while
