@@ -133,6 +133,24 @@ export function makePed(opts = {}) {
     under.rotation.x = Math.PI / 2;
     under.position.y = 0.5;
     um.add(under);
+    // Round 2: a rim ring gives the canopy an edge with thickness,
+    // and six ribs run hub-to-rim underneath — the structure that
+    // makes an umbrella read as an umbrella from below and behind.
+    const rim = new T.Mesh(new T.TorusGeometry(0.79, 0.022, 6, 20), canopyMat);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.5;
+    um.add(rim);
+    const ribMat = new T.MeshPhongMaterial({ color: 0x2a2e35, shininess: 40 });
+    for (let i = 0; i < 6; i++) {
+      const ribG = new T.Group();
+      const rib = new T.Mesh(new T.BoxGeometry(0.025, 0.025, 0.78), ribMat);
+      rib.position.z = 0.39;
+      rib.rotation.x = 0.1;
+      ribG.add(rib);
+      ribG.position.y = 0.52;
+      ribG.rotation.y = (i / 6) * Math.PI * 2;
+      um.add(ribG);
+    }
     const spike = new T.Mesh(
       new T.ConeGeometry(0.03, 0.17, 6),
       new T.MeshPhongMaterial({ color: 0x222222, shininess: 50 })
@@ -338,6 +356,74 @@ function bumperBand(group, y, z, w) {
   return m;
 }
 
+// ---- detail kit, round 2 (gameplay pass) ---------------------------
+// Round 1 dressed the faces; the silhouette still read as a box with
+// wheels tucked underneath. These pieces shape the outline itself:
+// fender arches the wheels sit IN, a rocker skirt between them, a
+// sloped hood wedge, a grille face, an exhaust tip, roof rails. All
+// still inside the kind's existing envelope.
+
+// Dark fender shells around each wheel, proud of the body side by a
+// hair, so the wheel reads as sitting in an arch, not under a slab.
+function wheelArches(group, halfW, wheelY, r, zs) {
+  for (const side of [-1, 1]) for (const z of zs) {
+    const m = brick(0.1, r * 2 + 0.22, r * 2 + 0.3, 0x11151b, { shine: 30 });
+    m.position.set(side * (halfW - 0.03), wheelY + 0.05, z);
+    group.add(m);
+  }
+}
+
+// A low rocker band along each side between the wheels.
+function sideSkirts(group, halfW, y, zMid, len) {
+  for (const side of [-1, 1]) {
+    const m = brick(0.07, 0.2, len, 0x14181d, { shine: 30 });
+    m.position.set(side * (halfW - 0.02), y, zMid);
+    group.add(m);
+  }
+}
+
+// A sloped hood wedge: a thin body-colour slab leaning down toward
+// the nose, breaking the body's flat top line at the front.
+function hoodSlope(group, w, y, z, color, tilt = 0.22) {
+  const m = brick(w, 0.07, 0.95, color, { shine: 80 });
+  m.rotation.x = tilt;
+  m.position.set(0, y, z);
+  group.add(m);
+  return m;
+}
+
+// A dark grille face with two bright slats, between the headlights.
+function grille(group, y, z, w = 0.9) {
+  const m = brick(w, 0.2, 0.05, 0x0b0e13, { shine: 40 });
+  m.position.set(0, y, z);
+  group.add(m);
+  for (const dy of [-0.045, 0.045]) {
+    const slat = brick(w * 0.92, 0.025, 0.055, 0x9fb2c8, { shine: 90, spec: 0xdfe9f5 });
+    slat.position.set(0, y + dy, z);
+    group.add(slat);
+  }
+}
+
+// One exhaust tip poking from under the rear bumper.
+function exhaust(group, x, y, z) {
+  const m = new T.Mesh(
+    new T.CylinderGeometry(0.045, 0.05, 0.22, 8),
+    new T.MeshPhongMaterial({ color: 0x6a7684, shininess: 100, specular: 0xdfe9f5 })
+  );
+  m.rotation.x = Math.PI / 2;
+  m.position.set(x, y, z);
+  group.add(m);
+}
+
+// Two slim rails along a tall roof (angkot / bus), front to back.
+function roofRails(group, halfW, y, len, color = 0xd8dde3) {
+  for (const side of [-1, 1]) {
+    const m = brick(0.06, 0.06, len, color, { shine: 60 });
+    m.position.set(side * halfW, y, 0);
+    group.add(m);
+  }
+}
+
 export function makeCarMesh(kind, color) {
   const g = new T.Group();
   const wheels = [];
@@ -364,6 +450,10 @@ export function makeCarMesh(kind, color) {
     mountWheel(-0.85, 0.34, 1.25); mountWheel(0.85, 0.34, 1.25);
     mountWheel(-0.85, 0.34, -1.25); mountWheel(0.85, 0.34, -1.25);
     headlights(g, 0, 0.62, 1.95);
+    wheelArches(g, 0.93, 0.34, 0.34, [1.25, -1.25]);
+    sideSkirts(g, 0.93, 0.3, 0, 1.6);
+    roofRails(g, 0.6, 1.72, 3.4);
+    exhaust(g, 0.6, 0.28, -1.98);
     len = 3.9;
   } else if (kind === 'bajaj') {
     // Three-wheeled taxi: single front wheel, canvas canopy.
@@ -377,6 +467,7 @@ export function makeCarMesh(kind, color) {
     mirrors(g, 1.28, 0.88, 0.68, c);
     mountWheel(0, 0.3, 1.0, 0.3); mountWheel(-0.62, 0.3, -0.8, 0.3); mountWheel(0.62, 0.3, -0.8, 0.3);
     headlights(g, 0, 0.6, 1.1, 0.3);
+    exhaust(g, 0.3, 0.24, -1.12);
     len = 2.3;
   } else if (kind === 'bus') {
     const bodyM = brick(2.3, 2.2, 9.4, color ?? 0x26a69a, { shine: 45 }); bodyM.position.y = 1.5; g.add(bodyM);
@@ -392,6 +483,11 @@ export function makeCarMesh(kind, color) {
     mountWheel(-1.0, 0.48, 3.1, 0.48); mountWheel(1.0, 0.48, 3.1, 0.48);
     mountWheel(-1.0, 0.48, -3.1, 0.48); mountWheel(1.0, 0.48, -3.1, 0.48);
     headlights(g, 0, 0.8, 4.7, 0.8);
+    wheelArches(g, 1.15, 0.48, 0.48, [3.1, -3.1]);
+    sideSkirts(g, 1.15, 0.35, 0, 5.2);
+    roofRails(g, 0.7, 2.66, 8.2);
+    grille(g, 1.0, 4.72, 1.4);
+    exhaust(g, 0.8, 0.3, -4.75);
     len = 9.4;
   } else if (kind === 'truk') {
     // Sayur truck: cab + open bed with vegetable crates.
@@ -409,6 +505,9 @@ export function makeCarMesh(kind, color) {
     mountWheel(-0.85, 0.36, 1.5); mountWheel(0.85, 0.36, 1.5);
     mountWheel(-0.85, 0.36, -1.4); mountWheel(0.85, 0.36, -1.4);
     headlights(g, 0, 0.66, 2.3);
+    wheelArches(g, 0.95, 0.36, 0.34, [1.5, -1.4]);
+    grille(g, 0.75, 2.32, 1.1);
+    exhaust(g, 0.7, 0.25, -2.25);
     len = 4.4;
   } else if (kind === 'cruiser') {
     // POLRESTA interceptor: white body, blue stripe, red/blue light bar.
@@ -434,6 +533,11 @@ export function makeCarMesh(kind, color) {
     mountWheel(-0.85, 0.34, 1.45); mountWheel(0.85, 0.34, 1.45);
     mountWheel(-0.85, 0.34, -1.45); mountWheel(0.85, 0.34, -1.45);
     headlights(g, 0, 0.62, 2.2);
+    wheelArches(g, 0.925, 0.34, 0.34, [1.45, -1.45]);
+    sideSkirts(g, 0.925, 0.3, 0, 2.0);
+    hoodSlope(g, 1.7, 0.93, 1.75, 0xf2f4f6);
+    grille(g, 0.62, 2.21, 1.0);
+    exhaust(g, 0.62, 0.26, -2.22);
     len = 4.4;
   } else if (kind === 'coupe') {
     // RINTIK GT — the hero car. Vivid red on purpose: it is the cover's
@@ -452,6 +556,10 @@ export function makeCarMesh(kind, color) {
     mountWheel(-0.82, 0.33, 1.4, 0.33); mountWheel(0.82, 0.33, 1.4, 0.33);
     mountWheel(-0.82, 0.33, -1.4, 0.33); mountWheel(0.82, 0.33, -1.4, 0.33);
     headlights(g, 0, 0.55, 2.6, 0.6);
+    wheelArches(g, 0.9, 0.33, 0.33, [1.4, -1.4]);
+    sideSkirts(g, 0.9, 0.28, 0, 1.9);
+    grille(g, 0.5, 2.76, 0.95);
+    exhaust(g, -0.55, 0.3, -2.2); exhaust(g, 0.55, 0.3, -2.2); // twin tips on the GT
     len = 4.5;
   } else {
     // Civilian sedan / hatchback in muted street colours.
@@ -473,6 +581,11 @@ export function makeCarMesh(kind, color) {
     mountWheel(-0.82, 0.33, 1.35, 0.33); mountWheel(0.82, 0.33, 1.35, 0.33);
     mountWheel(-0.82, 0.33, -1.35, 0.33); mountWheel(0.82, 0.33, -1.35, 0.33);
     headlights(g, 0, 0.6, (isHatch ? 3.6 : 4.3) / 2);
+    wheelArches(g, 0.89, 0.33, 0.33, [1.35, -1.35]);
+    sideSkirts(g, 0.89, 0.29, 0, 1.8);
+    hoodSlope(g, 1.62, 0.92, halfD - 0.55, c);
+    grille(g, 0.6, halfD + 0.01, 1.0);
+    exhaust(g, 0.6, 0.26, -halfD - 0.05);
     len = isHatch ? 3.6 : 4.3;
   }
 

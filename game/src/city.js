@@ -229,6 +229,7 @@ export function buildCity(scene) {
   buildStasiun(world);
   buildKampung(world);
   buildJalur(world);
+  streetProps(world);
   // Shadow contract: solid Phong geometry casts and receives; flat
   // Phong planes/discs (ground, roads, sidewalks, puddles) receive
   // only. Basic-material overlays (signs, light pools, glows) stay
@@ -300,6 +301,28 @@ function tower(world, x, z, w, h, d, texBase) {
   if (h > 30) {
     const band = new T.Mesh(new T.BoxGeometry(w + 0.4, 0.4, d + 0.4), trimMat);
     band.position.set(x, h * 0.55, z); world.add(band);
+  }
+  // Round-2 silhouette work: some towers wear a second, lower cornice
+  // lip, and mid-rise towers grow balcony rows on one flank — slab +
+  // front rail — so the window grid stops being the only rhythm on
+  // the facade and the skyline reads built, not extruded.
+  if (rand(0, 1) < 0.4) {
+    const lip2 = new T.Mesh(new T.BoxGeometry(w + 0.45, 0.3, d + 0.45), trimMat);
+    lip2.position.set(x, h - 1.15, z); world.add(lip2);
+  }
+  if (h >= 15 && rand(0, 1) < 0.6) {
+    const side = rand(0, 1) < 0.5 ? 1 : -1;
+    const rows = 2 + Math.floor(rand(0, 2));
+    for (let i = 0; i < rows; i++) {
+      const by = 5 + i * rand(3.4, 4.6);
+      if (by > h - 2.5) break;
+      const bx = x + side * (w / 2 + 0.42);
+      const slab = new T.Mesh(new T.BoxGeometry(0.85, 0.12, 2.3), trimMat);
+      slab.position.set(bx, by, z + rand(-d / 4, d / 4)); world.add(slab);
+      const rail = new T.Mesh(new T.BoxGeometry(0.05, 0.42, 2.3),
+        new T.MeshPhongMaterial({ color: 0x11161d, shininess: 40 }));
+      rail.position.set(x + side * (w / 2 + 0.82), by + 0.26, slab.position.z); world.add(rail);
+    }
   }
   // Rooftop clutter: AC boxes, a water tank, an antenna with beacon.
   const roofMat = new T.MeshPhongMaterial({ color: 0x39424e, shininess: 30 });
@@ -399,6 +422,72 @@ function fillBlocks(world) {
   neonSign(world, 'KOPI KABUT', 'KOPI • SINGKONG KEJU', '#ff5da2', '#160510', 11, 16, 8, 39.5, Math.PI);
   neonSign(world, 'BIOSKOP GERIMIS', 'FILM TENGAH MALAM', '#c77dff', '#0e0618', 14, -14, 15, 39.5, Math.PI);
   neonSign(world, 'BENGKEL UJANG', 'TUNE UP • BAN • OLI', '#ffd54f', '#141003', 11, -39.5, 7, 30, Math.PI / 2);
+}
+
+// ------------------------------------------------------------ street props
+// Round-2 street-level clutter (gameplay pass): the small solid things
+// a street actually has — crate stacks at the market and depots, litter
+// bins on the busy corners, rows of parked motorbikes at the station
+// and pasar. Each cluster registers one honest collider.
+function streetProps(world) {
+  const crateMat = new T.MeshPhongMaterial({ color: 0x7a5c38, shininess: 15 });
+  const crateMat2 = new T.MeshPhongMaterial({ color: 0x5d6e46, shininess: 15 });
+  function crateStack(x, z, n) {
+    for (let i = 0; i < n; i++) {
+      const s = rand(0.55, 0.85);
+      const crate = new T.Mesh(new T.BoxGeometry(s, s, s), rand(0, 1) < 0.5 ? crateMat : crateMat2);
+      crate.position.set(x + rand(-0.5, 0.5), s / 2 + (i > 2 ? 0.62 : 0), z + rand(-0.5, 0.5));
+      crate.rotation.y = rand(0, 0.6);
+      world.add(crate);
+    }
+    addCollider(x, z, 1.05, 1.05);
+  }
+  crateStack(168, 18, 4);   // pasar south-west corner
+  crateStack(236, 66, 3);   // pasar east lane
+  crateStack(-166, 80, 4);  // terminal apron
+  crateStack(-4, 224, 3);   // station forecourt west
+
+  const binMat = new T.MeshPhongMaterial({ color: 0x2e4a3a, shininess: 35 });
+  function bin(x, z) {
+    const b = new T.Mesh(new T.CylinderGeometry(0.3, 0.26, 0.78, 9), binMat);
+    b.position.set(x, 0.39, z); world.add(b);
+    const rim = new T.Mesh(new T.TorusGeometry(0.3, 0.035, 6, 12),
+      new T.MeshPhongMaterial({ color: 0x9fb2c8, shininess: 80 }));
+    rim.rotation.x = Math.PI / 2; rim.position.set(x, 0.79, z); world.add(rim);
+    addCollider(x, z, 0.34, 0.34);
+  }
+  bin(20, 197); bin(70, 197); bin(176, 20); bin(-176, 32); bin(-14, -44); bin(52, 44);
+
+  // Parked motorbikes: two wheels, a low spine, seat and bars — five
+  // parts each, in angled rows where riders actually leave them.
+  const bikeBody = new T.MeshPhongMaterial({ color: 0x37474f, shininess: 60 });
+  const bikeAccent = [0xc62828, 0x1565c0, 0x2e7d32, 0xf9a825, 0x6a1b9a];
+  function motorbike(x, z, ry, accent) {
+    const g = new T.Group();
+    const wheelG = new T.CylinderGeometry(0.27, 0.27, 0.09, 10);
+    const wheelM = new T.MeshPhongMaterial({ color: 0x0c0d10, shininess: 40 });
+    for (const wz of [-0.52, 0.52]) {
+      const wh = new T.Mesh(wheelG, wheelM);
+      wh.rotation.z = Math.PI / 2;
+      wh.position.set(0, 0.27, wz);
+      g.add(wh);
+    }
+    const spine = new T.Mesh(new T.BoxGeometry(0.24, 0.22, 1.25), new T.MeshPhongMaterial({ color: accent, shininess: 70 }));
+    spine.position.set(0, 0.52, -0.05); spine.rotation.x = 0.1; g.add(spine);
+    const seat = new T.Mesh(new T.BoxGeometry(0.3, 0.1, 0.62), bikeBody);
+    seat.position.set(0, 0.68, -0.32); g.add(seat);
+    const bars = new T.Mesh(new T.BoxGeometry(0.44, 0.06, 0.08), bikeBody);
+    bars.position.set(0, 0.92, 0.48); g.add(bars);
+    const stem = new T.Mesh(new T.BoxGeometry(0.07, 0.42, 0.07), bikeBody);
+    stem.position.set(0, 0.72, 0.46); stem.rotation.x = 0.35; g.add(stem);
+    g.position.set(x, 0, z);
+    g.rotation.y = ry;
+    world.add(g);
+  }
+  for (let i = 0; i < 4; i++) motorbike(84 + i * 2.6, 200, Math.PI / 2 + rand(-0.12, 0.12), bikeAccent[i % bikeAccent.length]);
+  addCollider(88, 200, 5.4, 0.8);
+  for (let i = 0; i < 3; i++) motorbike(158, 12 + i * 2.6, rand(-0.12, 0.12), bikeAccent[(i + 2) % bikeAccent.length]);
+  addCollider(158, 15, 0.8, 4.2);
 }
 
 // ------------------------------------------------------------ districts
