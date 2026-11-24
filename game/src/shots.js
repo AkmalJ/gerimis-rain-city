@@ -447,17 +447,22 @@ export function installStaging(api) {
       }
     },
 
-    // DUEL — a Pasar Kabut aisle gunfight. Hero west aiming east, three
-    // Anak Kabut down the lane with staggered first shots, so the frame
-    // can hold travelling streaks in both directions at once.
+    // DUEL — a Pasar Kabut aisle gunfight (rev9 restage). The old frame
+    // stood WEST of the market on the empty apron: Damar clipped at the
+    // frame edge, three gunmen small against bare asphalt. Now the duel
+    // plays INSIDE the market's middle aisle (stall rows at z 44 and
+    // z 61): Damar at the aisle mouth aiming east, SIX Anak Kabut spread
+    // down the lane inside their 40 m firing range, staggered first
+    // shots so the frame can hold travelling streaks in both directions
+    // at once, stall awnings and goods flanking both sides.
     duel() {
       api.seedStats(SHOWCASE);
       api.startJobAt(6); api.setStage(2); // GUDANG BASAH: "Ketahuan! Tembak jalan keluar"
       S.weaponIdx = 2; giveGun(player.mesh, 'smg');
-      player.mesh.position.set(179, 0, 53);
+      player.mesh.position.set(205, 0, 52.5);
       player.mesh.rotation.y = Math.PI / 2;
       player.aimBlend = 1;
-      const firingLine = [[190, 50.5], [193, 55.5], [189, 59]];
+      const firingLine = [[215, 49.5], [219, 55.5], [226, 50], [231, 55], [236, 51], [240, 54.5]];
       firingLine.forEach(([gx, gz], i) => {
         const gunman = api.pedEntity('gang', { gang: true, marker: true }, gx, gz, -Math.PI / 2);
         giveGun(gunman.mesh, pick(['smg', 'p9', 'smg']));
@@ -465,9 +470,13 @@ export function installStaging(api) {
         gunman.fireCd = 0.3 + i * 0.22; // staggered: return fire overlaps the hero's burst
         api.gangs.push(gunman);
       });
-      // Tight and low: hero large at the left, the firing line big enough
-      // that both directions of streak read at thumbnail size.
-      api.setCam([173.8, 1.7, 48.6], [192, 1.25, 54.8]);
+      // Over Damar's right shoulder from the aisle's south side, low:
+      // looking east, screen-right runs along +z, so the camera sits at
+      // the higher z to hold the hero large and whole at the LEFT while
+      // the aisle runs diagonally east past him; the firing line stays
+      // big enough that both directions of streak read at dossier size,
+      // and the stage beam at the gudang falls outside the frame.
+      api.setCam([198.6, 1.8, 57.6], [228, 1.1, 51.6]);
     },
 
     // PASAR — the wet market at full density: hero mid-aisle, a crowd of
