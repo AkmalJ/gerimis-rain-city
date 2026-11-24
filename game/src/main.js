@@ -788,6 +788,15 @@ function updatePolice(dt) {
   for (const c of cruisers) { const g = dist2d(c.mesh.position.x, c.mesh.position.z, anchor.x, anchor.z); if (g < nearestGap) { nearestGap = g; nearest = c; } }
   const pvx = S.driving && playerCar ? Math.sin(playerCar.heading) * playerCar.speed : 0;
   const pvz = S.driving && playerCar ? Math.cos(playerCar.heading) * playerCar.speed : 0;
+  // Engagement rings (police-fix): against a man on foot the nearest
+  // unit pulls up 8.5 m out and puts its officer on the street; the
+  // rest hold a 13–19 m perimeter instead of all driving onto his
+  // exact standing point (owner playtest 19:31 — units piled onto one
+  // spot, through each other, and only stopped at his feet).
+  const RINGS = [8.5, 13, 15.5, 17.5, 19];
+  cruisers.filter(c => c.alive !== false)
+    .sort((a, b) => dist2d(a.mesh.position.x, a.mesh.position.z, anchor.x, anchor.z) - dist2d(b.mesh.position.x, b.mesh.position.z, anchor.x, anchor.z))
+    .forEach((c, i) => { c._rank = i; });
   for (let i = cruisers.length - 1; i >= 0; i--) {
     const cruiser = cruisers[i];
     const gap = dist2d(cruiser.mesh.position.x, cruiser.mesh.position.z, anchor.x, anchor.z);
@@ -796,32 +805,74 @@ function updatePolice(dt) {
     if (cruiser.alive === false) { cruiser.speed = 0; continue; }
     if (cruiser.loseT > 0) cruiser.loseT -= dt;
     let tx = anchor.x, tz = anchor.z;
-    if (cruiser === nearest && S.driving) { tx += pvx * 0.55; tz += pvz * 0.55; }
+    let ring = 0;
+    if (!S.driving && S.wanted > 0) {
+      // On foot: steer to the stop point on this unit's own ring,
+      // along its current bearing from the player — a pull-up, not a
+      // drive-on. Speed keys off distance to the ring, so the unit
+      // settles at the ring instead of creeping to his feet.
+      ring = RINGS[Math.min(cruiser._rank ?? 0, RINGS.length - 1)];
+      const ux = gap > 0.01 ? (cruiser.mesh.position.x - anchor.x) / gap : Math.sin(cruiser.heading);
+      const uz = gap > 0.01 ? (cruiser.mesh.position.z - anchor.z) / gap : Math.cos(cruiser.heading);
+      tx = anchor.x + ux * ring; tz = anchor.z + uz * ring;
+    } else if (cruiser === nearest && S.driving) { tx += pvx * 0.55; tz += pvz * 0.55; }
     const chaseHeading = headingTo(cruiser.mesh.position.x, cruiser.mesh.position.z, tx, tz);
     const turnRate = cruiser.loseT > 0 ? 0.4 : (gap < 12 ? 3.4 : 2.2);
     cruiser.heading = angleLerp(cruiser.heading, chaseHeading, dt * turnRate);
     let targetSpeed = S.wanted === 0 ? 0 : clamp(9 + S.wanted * 1.6, 0, 17);
     if (S.driving && gap > 30) targetSpeed = 19.5;
-    if (!S.driving && S.wanted > 0) targetSpeed = gap < 2.6 ? 0 : (gap < 14 ? clamp(gap * 0.55, 2.0, targetSpeed) : targetSpeed);
+    if (ring) {
+      const toRing = Math.abs(gap - ring);
+      targetSpeed = toRing < 0.8 ? 0 : clamp(toRing * 0.55, 1.8, targetSpeed);
+    }
     cruiser.speed = lerp(cruiser.speed, cruiser.loseT > 0 ? 4 : targetSpeed, dt * 0.8);
     moveCar(cruiser, dt, true);
-    // A stopped cruiser at 3+ stars puts an officer on the street.
-    if (S.wanted >= 3 && !S.driving && gap < 9 && Math.abs(cruiser.speed) < 1.4 && !cruiser.officer) {
+    // A cruiser settled on its ring at 3+ stars puts an officer on
+    // the street — several metres out, who then closes on foot.
+    if (S.wanted >= 3 && !S.driving && gap <= 11 && Math.abs(cruiser.speed) < 1.4 && !cruiser.officer) {
       const off = pedEntity('civ', {}, cruiser.mesh.position.x + 1.6, cruiser.mesh.position.z, 0);
       cruiser.officer = off; officers.push(off);
-    }
-    // Contact is a ram: both cars pay, the player pays in blood on foot.
-    if (gap < 3.4) {
-      if (S.driving && playerCar) {
-        playerCar.hp -= 14 * dt * 4; cruiser.hp -= 6 * dt * 4;
-        if (Math.random() < dt * 2) fx.impactBurst(anchor.clone().setY(0.8), 3);
-      } else if (Math.random() < dt * 0.5) hurtPlayer(3);
     }
     // Light bar: the two lamps trade places on a fast sine.
     if (cruiser.mesh.userData.lightBar) {
       const phase = Math.sin(performance.now() * 0.012) > 0;
       cruiser.mesh.userData.lightBar.children[0].material.emissiveIntensity = phase ? 3.2 : 0.3;
       cruiser.mesh.userData.lightBar.children[1].material.emissiveIntensity = phase ? 0.3 : 3.2;
+    }
+  }
+  // Separation + stand-off (police-fix): units keep 4.4 m off one
+  // another at all times — no more piling onto one spot and passing
+  // through each other — and while the player is on foot no unit may
+  // close inside 3.7 m of him, stopped or moving. Two relax rounds
+  // settle the pair pushes against the stand-off clamp.
+  for (let iter = 0; iter < 2; iter++) {
+    for (let a = 0; a < cruisers.length; a++) for (let b = a + 1; b < cruisers.length; b++) {
+      const A = cruisers[a], B = cruisers[b], pa = A.mesh.position, pb = B.mesh.position;
+      let dx = pb.x - pa.x, dz = pb.z - pa.z, d = Math.hypot(dx, dz);
+      if (d >= 4.4) continue;
+      if (d < 0.01) { dx = Math.sin(A.heading + 1.57); dz = Math.cos(A.heading + 1.57); d = 0.01; }
+      const push = (4.4 - d) / 2, ux = dx / d, uz = dz / d;
+      const aFree = A.alive !== false, bFree = B.alive !== false;
+      if (aFree) { const s = bFree ? 1 : 2; pa.x -= ux * push * s; pa.z -= uz * push * s; }
+      if (bFree) { const s = aFree ? 1 : 2; pb.x += ux * push * s; pb.z += uz * push * s; }
+    }
+    if (!S.driving) for (const c of cruisers) {
+      if (c.alive === false) continue;
+      const cp = c.mesh.position, pp = player.mesh.position;
+      const dx = cp.x - pp.x, dz = cp.z - pp.z, d = Math.hypot(dx, dz);
+      if (d < 3.7) {
+        if (d < 0.01) { cp.x = pp.x + 3.7; cp.z = pp.z; }
+        else { cp.x = pp.x + dx / d * 3.7; cp.z = pp.z + dz / d * 3.7; }
+      }
+    }
+  }
+  // Contact is a ram — against his car only, never against the man:
+  // on foot the arrest is the officers' job, not the bumper's.
+  if (S.driving && playerCar) for (const cruiser of cruisers) {
+    if (cruiser.alive === false) continue;
+    if (dist2d(cruiser.mesh.position.x, cruiser.mesh.position.z, anchor.x, anchor.z) < 3.4) {
+      playerCar.hp -= 14 * dt * 4; cruiser.hp -= 6 * dt * 4;
+      if (Math.random() < dt * 2) fx.impactBurst(anchor.clone().setY(0.8), 3);
     }
   }
   // Officers on foot: close to 2.3 m and hold for the bust (2.2 s).
