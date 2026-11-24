@@ -6,7 +6,7 @@
 
 const T = window.THREE;
 import { WORLD, PAL, DISTRICTS, districtAt, WEAPONS, CREW, POLICE_UNITS, POLICE_TACTICS, DISPATCH_QUOTES, rankFor, clamp, lerp, rand, pick, dist2d } from './config.js';
-import { buildCity, resolveCollisions } from './city.js';
+import { buildCity, resolveCollisions, updateCity } from './city.js';
 import { Effects } from './effects.js';
 import { Ambience } from './ambience.js';
 import { makePed, animatePed, giveGun, gunMuzzleWorld, makeCarMesh, spinWheels, makeHeli } from './actors.js';
@@ -86,8 +86,8 @@ const camera = new T.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 900);
 // ambient trimmed down so forms model with real light and shade
 // instead of reading as flat cutouts. Night-rain mood kept — just
 // with depth.
-scene.add(new T.AmbientLight(PAL.ambient, 0.52));
-const hemisphere = new T.HemisphereLight(PAL.hemiSky, PAL.hemiGround, 0.45); scene.add(hemisphere);
+scene.add(new T.AmbientLight(PAL.ambient, 0.78));
+const hemisphere = new T.HemisphereLight(PAL.hemiSky, PAL.hemiGround, 0.66); scene.add(hemisphere);
 const moonlight = new T.DirectionalLight(0x8fb4e8, 0.9);
 moonlight.position.set(-60, 100, -40);
 moonlight.castShadow = true;
@@ -213,6 +213,24 @@ for (let i = 0; i < 3; i++) { const ang = carEntity('angkot', -186 + i * 13, 40,
 { const ang = carEntity('angkot', -4, 212, 0, 'parked'); ang.name = 'ANGKOT'; parkeds.push(ang); }
 { const sed = carEntity('sedan', 98, 212, Math.PI / 2, 'parked'); sed.name = carName('sedan'); parkeds.push(sed); }
 { const hat = carEntity('hatch', 110, 212, -Math.PI / 2, 'parked'); hat.name = carName('hatch'); parkeds.push(hat); }
+// Rev-4 spawn life: a drop-off queue nosed at the station doors, curb
+// parking on BOTH streets that corner the spawn point, and a guaranteed
+// -umbrella crowd that walks the forecourt and the spawn sidewalks —
+// the 360° look from spawn is occupied in every direction now.
+{ const baj = carEntity('bajaj', 33, 217, Math.PI, 'parked'); baj.name = carName('bajaj'); parkeds.push(baj); }
+{ const ang2 = carEntity('angkot', 54, 219, 0, 'parked'); ang2.name = 'ANGKOT'; parkeds.push(ang2); }
+for (const [px, pz, ry, kind] of [[-11, 166, 0, 'hatch'], [-11, 152, 0, 'sedan'], [44, 201, Math.PI / 2, 'angkot'], [-26, 201, -Math.PI / 2, 'hatch'], [72, 183, Math.PI / 2, 'sedan'], [-38, 183, -Math.PI / 2, 'truk']]) {
+  const parked = carEntity(kind, px, pz, ry, 'parked');
+  parked.name = carName(kind);
+  parkeds.push(parked);
+}
+const umbrellaPalette2 = [0xd81b60, 0x00897b, 0xf9a825, 0x3949ab, 0xc62828, 0x6a1b9a];
+[[22, 213], [38, 221], [57, 209], [71, 219], [13, 205], [48, 215], [81, 207], [29, 196], [61, 196], [43, 224],
+ [2, 186], [-15, 189], [31, 189], [-31, 181], [8, 168], [-6, 158]].forEach(([sx, sz], i) => {
+  const civ = pedEntity('civ', { umbrella: umbrellaPalette2[i % umbrellaPalette2.length] }, sx, sz, rand(0, 6.3));
+  if (civ.mesh.userData.parts) civ.mesh.userData.holdsUmbrella = true;
+  civs.push(civ);
+});
 
 function carName(kind) { return CAR_NAMES[kind] || 'MOBIL'; }
 
@@ -1190,6 +1208,7 @@ function loop() {
 
   fx.update(dt, anchor);
   ambience.update(dt, anchor);
+  updateCity(dt);
   hud.update(dt, hudState());
   document.getElementById('insight').style.display = S.inSight ? 'block' : 'none';
   document.getElementById('crosshair').style.display = (!S.driving && S.weaponIdx > 0) ? 'block' : 'none';

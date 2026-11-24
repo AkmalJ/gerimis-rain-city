@@ -25,7 +25,7 @@ export const WORLD = {
 
 // ---------------------------------------------------------------- palette
 export const PAL = {
-  sky: 0x131e30, fog: 0x182636, fogDensity: 0.0042,
+  sky: 0x131e30, fog: 0x182636, fogDensity: 0.0037,
   ambient: 0x3a4c6e, hemiSky: 0x33507e, hemiGround: 0x0a0e14,
   asphalt: 0x11151d, asphaltSpec: 0x9db8dd, sidewalk: 0x232b38,
   neonPink: 0xff2e88, neonCyan: 0x00e5ff, neonTeal: 0x00ffc8,

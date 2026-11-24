@@ -559,6 +559,73 @@ function buildPasar(world) {
   }
 }
 
+// ------------------------------------------------------------ warung stall
+// One lit street stall — counter, tilted awning, goods, a warm bulb and
+// a light pool — shared by the station plaza and the city-life clusters.
+// Stools ring the serving side; the counter registers the collider.
+export function warungStall(world, x, z, ry = 0) {
+  const g = new T.Group();
+  const counter = new T.Mesh(new T.BoxGeometry(4.6, 1.1, 1.8), new T.MeshPhongMaterial({ color: 0x5d4037 }));
+  counter.position.set(0, 0.55, 0); g.add(counter);
+  const awning = new T.Mesh(
+    new T.BoxGeometry(5.6, 0.13, 3.6),
+    new T.MeshPhongMaterial({ color: pick([0xd81b60, 0x00897b, 0xf9a825, 0x2e7d32]), shininess: 30 })
+  );
+  awning.position.set(0, 2.7, 0.3); awning.rotation.x = 0.15; g.add(awning);
+  for (const s of [-2.5, 2.5]) {
+    const post = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, 2.7, 5), new T.MeshPhongMaterial({ color: 0x333333 }));
+    post.position.set(s, 1.35, 1.3); g.add(post);
+  }
+  const goodsPalette = [0x66bb6a, 0xff7043, 0xffee58, 0xab47bc, 0x26c6da];
+  for (let k = 0; k < 3; k++) {
+    const goods = new T.Mesh(new T.BoxGeometry(0.7, 0.45, 0.7), new T.MeshPhongMaterial({ color: pick(goodsPalette), shininess: 40 }));
+    goods.position.set(rand(-1.6, 1.6), 1.33, rand(-0.4, 0.4)); g.add(goods);
+  }
+  const stoolMat = new T.MeshPhongMaterial({ color: 0x37474f, shininess: 40 });
+  for (const [sx, sz] of [[-1.6, 1.9], [0, 2.1], [1.6, 1.9]]) {
+    const stool = new T.Mesh(new T.CylinderGeometry(0.26, 0.26, 0.5, 8), stoolMat);
+    stool.position.set(sx, 0.25, sz); g.add(stool);
+  }
+  glowSprite(g, 0, 2.3, 0.6, 2.2, 0xffc46b, 0.85);
+  g.position.set(x, 0, z);
+  g.rotation.y = ry;
+  world.add(g);
+  lightPool(world, x + Math.sin(ry) * 1.8, z + Math.cos(ry) * 1.8, 6, 0xffb347, 0.3);
+  addCollider(x, z, 2.4, 1.1);
+}
+
+// ------------------------------------------------------------ the train
+// The one piece of the city that moves. buildStasiun registers the
+// group, its door-glow panels and a LIVE collider object here;
+// updateCity() runs the loop — glide in from the east, dwell at the
+// platform with doors lit, depart west, wait in the dark, return.
+// The collider object is mutated in place: resolveCollisions reads
+// the array fresh every call, so the box travels with the train.
+const trainState = { group: null, collider: null, doorGlow: null, t: 0, phase: 'arrive', x: 218 };
+const TRAIN_DWELL_X = 39, TRAIN_Z = 251;
+export function updateCity(dt) {
+  const tr = trainState;
+  if (!tr.group) return;
+  tr.t += dt;
+  let speed = 0;
+  if (tr.phase === 'arrive') {
+    const gap = tr.x - TRAIN_DWELL_X;
+    speed = -Math.max(2.4, Math.min(13, gap * 0.32));
+    if (gap < 0.5) { tr.x = TRAIN_DWELL_X; tr.phase = 'dwell'; tr.t = 0; }
+  } else if (tr.phase === 'dwell') {
+    if (tr.t > 9) { tr.phase = 'depart'; tr.t = 0; }
+  } else if (tr.phase === 'depart') {
+    speed = -13;
+    if (tr.x < -160) { tr.phase = 'away'; tr.t = 0; }
+  } else if (tr.phase === 'away') {
+    if (tr.t > 7) { tr.phase = 'arrive'; tr.t = 0; tr.x = 218; }
+  }
+  tr.x += speed * dt;
+  tr.group.position.x = tr.x;
+  if (tr.collider) tr.collider.x = tr.x;
+  if (tr.doorGlow) tr.doorGlow.visible = tr.phase === 'dwell';
+}
+
 function buildStasiun(world) {
   const cx = 45, cz = 232;
   // Flanking towers fill the reserved block's empty flanks: the station
@@ -568,10 +635,10 @@ function buildStasiun(world) {
   tower(world, 110, 206, 22, 31, 20, '#28303f');
   streetLamp(world, 0, 212);
   streetLamp(world, 90, 212);
-  const facade = new T.Mesh(
-    new T.BoxGeometry(66, 13, 8),
-    new T.MeshPhongMaterial({ color: 0x2c3644, shininess: 30 })
-  );
+  streetLamp(world, 26, 221);
+  streetLamp(world, 64, 221);
+  const facadeMat = new T.MeshPhongMaterial({ color: 0x2c3644, shininess: 30 });
+  const facade = new T.Mesh(new T.BoxGeometry(66, 13, 8), facadeMat);
   facade.position.set(cx, 6.5, cz); world.add(facade);
   // Six glowing arches along the front, each pooling light on the street.
   for (let i = 0; i < 6; i++) {
@@ -579,13 +646,64 @@ function buildStasiun(world) {
     arch.position.set(cx - 27 + i * 11, 4, cz - 4.4); world.add(arch);
     lightPool(world, cx - 27 + i * 11, cz - 9, 7, 0xffb347, 0.3);
   }
+  // THE SIGN, twice: the original board faces the platform (+Z); this
+  // second board is rotated PI so street-side players read STASIUN
+  // KOTA correctly instead of mirrored — same canvas recipe, in-game.
   neonSign(world, 'STASIUN KOTA', 'KERETA MALAM • LOKET 24 JAM', '#ffb347', '#171003', 20, cx, 15.4, cz - 4.6);
-  // Platform, twin rails, and a waiting night train with lit windows.
+  neonSign(world, 'STASIUN KOTA', 'KERETA MALAM • LOKET 24 JAM', '#ffb347', '#171003', 20, cx, 15.4, cz - 5.1, Math.PI);
+  // --- the hall gets MASS: cornice + frieze, a roof volume with a
+  // parapet and rooftop clutter, two side wings, and a recessed
+  // entrance portal on columns — from any 3/4 angle it now reads as
+  // a BUILDING with depth, not a billboard wall.
+  const trimMat = new T.MeshPhongMaterial({ color: 0x1c242f, shininess: 24 });
+  const cornice = new T.Mesh(new T.BoxGeometry(67.6, 0.6, 9.6), trimMat);
+  cornice.position.set(cx, 12.75, cz); world.add(cornice);
+  const frieze = new T.Mesh(new T.BoxGeometry(67.6, 0.22, 9.65), new T.MeshBasicMaterial({ color: 0xffb347 }));
+  frieze.position.set(cx, 12.35, cz); world.add(frieze);
+  const roof = new T.Mesh(new T.BoxGeometry(72, 1.3, 24), new T.MeshPhongMaterial({ color: 0x232c38, shininess: 26 }));
+  roof.position.set(cx, 13.9, cz + 3); world.add(roof);
+  for (const [px, pz, pw, pd] of [[cx, cz - 8.6, 72, 0.5], [cx, cz + 14.6, 72, 0.5], [cx - 35.8, cz + 3, 0.5, 24], [cx + 35.8, cz + 3, 0.5, 24]]) {
+    const par = new T.Mesh(new T.BoxGeometry(pw, 0.95, pd), trimMat);
+    par.position.set(px, 14.95, pz); world.add(par);
+  }
+  const tank = new T.Mesh(new T.CylinderGeometry(1.6, 1.6, 2.6, 10), new T.MeshPhongMaterial({ color: 0x546e7a, shininess: 45 }));
+  tank.position.set(cx - 22, 15.85, cz + 6); world.add(tank);
+  const acBox = new T.Mesh(new T.BoxGeometry(3.2, 1.1, 2.2), new T.MeshPhongMaterial({ color: 0x39424e, shininess: 30 }));
+  acBox.position.set(cx + 18, 15.1, cz + 2); world.add(acBox);
+  // Side wings: lower masses stepping down at both ends of the hall.
+  tower(world, 1, 235, 13, 9.5, 15, '#28303f');
+  tower(world, 89, 235, 13, 11, 15, '#232d3d');
+  // Entrance portal: two columns + lintel + a lit canopy slab in front
+  // of the centre doors, with a warm pool on the apron.
+  for (const px of [cx - 7, cx + 7]) {
+    const col = new T.Mesh(new T.BoxGeometry(0.8, 6.4, 0.8), facadeMat);
+    col.position.set(px, 3.2, cz - 9.5); world.add(col);
+    addCollider(px, cz - 9.5, 0.45, 0.45);
+  }
+  const lintel = new T.Mesh(new T.BoxGeometry(16.5, 0.9, 1.4), trimMat);
+  lintel.position.set(cx, 6.6, cz - 9.5); world.add(lintel);
+  const canopy = new T.Mesh(new T.BoxGeometry(21, 0.35, 6), new T.MeshPhongMaterial({ color: 0x27313f, shininess: 50, specular: 0x8899bb }));
+  canopy.position.set(cx, 5.7, cz - 7.6); world.add(canopy);
+  const canopyGlow = new T.Mesh(new T.BoxGeometry(21.2, 0.14, 6.2), new T.MeshBasicMaterial({ color: 0xffc46b }));
+  canopyGlow.position.set(cx, 5.45, cz - 7.6); world.add(canopyGlow);
+  lightPool(world, cx, cz - 11, 11, 0xffb347, 0.42);
+  // Platform, twin rails, and the night train — now ON its track,
+  // centred on the platform edge, and MOVING (see updateCity).
   const platform = new T.Mesh(
     new T.BoxGeometry(90, 0.8, 7),
     new T.MeshPhongMaterial({ color: 0x39424e, shininess: 50, specular: 0x77879f })
   );
   platform.position.set(cx, 0.4, cz + 12); world.add(platform);
+  // Platform canopy on columns behind the hall.
+  const pCanopy = new T.Mesh(new T.BoxGeometry(84, 0.45, 8.6), new T.MeshPhongMaterial({ color: 0x27313f, shininess: 50, specular: 0x8899bb }));
+  pCanopy.position.set(cx, 6.7, cz + 12.5); world.add(pCanopy);
+  for (const px of [9, 27, 45, 63, 81]) {
+    for (const pz of [cz + 9.2, cz + 15.8]) {
+      const col = new T.Mesh(new T.CylinderGeometry(0.16, 0.16, 6.7, 6), new T.MeshPhongMaterial({ color: 0x39424e }));
+      col.position.set(px, 3.35, pz); world.add(col);
+    }
+    glowSprite(world, px, 6.2, cz + 12.5, 3, 0xffc46b, 0.55);
+  }
   for (const s of [-1.1, 1.1]) {
     const rail = new T.Mesh(
       new T.BoxGeometry(150, 0.12, 0.18),
@@ -606,10 +724,29 @@ function buildStasiun(world) {
   winBand.position.y = 2.7; train.add(winBand);
   const stripe = new T.Mesh(new T.BoxGeometry(64.2, 0.4, 3.3), new T.MeshBasicMaterial({ color: PAL.neonPink }));
   stripe.position.y = 1.35; train.add(stripe);
-  train.position.set(cx - 6, 0, cz + 19);
+  // Headlight glows at both ends (it runs both ways across the night)
+  // and a row of door panels on the platform side that light up only
+  // while the train dwells at the platform.
+  glowSprite(train, -32.6, 1.7, 0, 4.5, 0xd8ecff, 0.9);
+  glowSprite(train, 32.6, 1.7, 0, 4.5, 0xd8ecff, 0.9);
+  const doorGlow = new T.Group();
+  for (let i = 0; i < 6; i++) {
+    const door = new T.Mesh(new T.BoxGeometry(1.6, 2.3, 0.06), new T.MeshBasicMaterial({ color: 0xffd98a }));
+    door.position.set(-26 + i * 10.4, 1.75, -1.66);
+    doorGlow.add(door);
+  }
+  doorGlow.visible = false;
+  train.add(doorGlow);
+  train.position.set(trainState.x, 0, TRAIN_Z);
   world.add(train);
+  trainState.group = train;
+  trainState.doorGlow = doorGlow;
+  trainState.collider = { x: trainState.x, z: TRAIN_Z, hw: 32, hd: 2 };
+  colliders.push(trainState.collider);
   addCollider(cx, cz, 33, 4.5);
-  addCollider(cx - 6, cz + 19, 32, 2);
+  // Two lit warung stalls at the plaza edges — the forecourt feeds people.
+  warungStall(world, 6, 219, 0.5);
+  warungStall(world, 86, 219, -0.5);
 }
 
 function buildKampung(world) {
