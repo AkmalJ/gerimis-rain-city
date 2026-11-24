@@ -345,7 +345,11 @@ function tryEnterExit() {
   }
   car.role = 'player'; playerCar = car; S.driving = true;
   player.mesh.visible = false;
-  camYaw = car.heading + Math.PI;
+  // Chase cam sits BEHIND the car: camYaw is the view-forward direction
+  // (same convention as on foot), so it must equal the car's heading —
+  // heading + PI put the camera on the nose, looking back, and mirrored
+  // the steering on screen (the "gabisa nyetir" bug).
+  camYaw = car.heading;
   hud.showToast(car.name + ' — WASD untuk menyetir, F untuk turun');
 }
 function tryRaceStart() {
@@ -862,8 +866,10 @@ function updatePlayer(dt) {
     else car.speed = lerp(car.speed, 0, dt * 0.55); // engine braking
     if (keys.Space) car.speed = lerp(car.speed, 0, dt * 3.4); // handbrake: one strong decay, applied once
     // Steering authority grows with speed, capped so the car stays a car.
+    // (Softened in the gameplay pass: at the old 1.5 rad/s cap a held key
+    // spun the car ~170° in 2 s at top speed — a U-turn, not a turn.)
     if (Math.abs(car.speed) > 0.4 && steer !== 0) {
-      car.heading += steer * dt * clamp(Math.abs(car.speed) * 0.055, 0.2, 1.5) * Math.sign(car.speed);
+      car.heading += steer * dt * clamp(Math.abs(car.speed) * 0.045, 0.2, 1.05) * Math.sign(car.speed);
     }
     const before = car.mesh.position.clone();
     moveCar(car, dt);
@@ -1034,7 +1040,7 @@ function updateCamera(dt) {
   camera.lookAt(gaze);
   // Driving gently drags the camera behind the car's heading.
   if (S.driving && playerCar && (keys.KeyW || keys.KeyS)) {
-    camYaw = angleLerp(camYaw, playerCar.heading + Math.PI, dt * 1.1);
+    camYaw = angleLerp(camYaw, playerCar.heading, dt * 1.1);
   }
 }
 
