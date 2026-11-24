@@ -28,8 +28,8 @@
   #mSegs .seg.done { background: #00ffc8; }
   #mSegs .seg.now { background: #ffd54f; }
 
-  /* dispatch panel — under the mission, red-ruled, hidden until wanted */
-  #dispatchPanel { border-left: 4px solid #ff3355; display: none; left: 14px; top: 196px; width: 342px; }
+  /* dispatch panel — under the mission + weapon row, red-ruled, hidden until wanted */
+  #dispatchPanel { border-left: 4px solid #ff3355; display: none; left: 14px; top: 268px; width: 342px; }
   #dHead { color: #ff8fa5; font-size: 12px; font-weight: 900; letter-spacing: 1.2px; }
   .dunit { display: flex; font-size: 12.5px; font-weight: 700; justify-content: space-between; margin-top: 5px; }
   .dtac { background: #274b73; border-radius: 4px; color: #bfe0ff; font-size: 11px; padding: 0 6px; }
@@ -65,8 +65,10 @@
   #rankFill { background: #ffd54f; border-radius: 3px; height: 100%; width: 0%; }
   #activityPanel { font-size: 12.5px; font-weight: 700; line-height: 1.7; right: 14px; top: 196px; width: 218px; }
 
-  /* weapon slots + crew cards — right edge, under the activity panel */
-  #weaponSlots { display: flex; gap: 6px; position: fixed; right: 14px; top: 268px; z-index: 5; }
+  /* weapon slots — under the mission panel, top-left (owner: the
+     right-edge stack blocked the view and got covered itself);
+     crew cards stay on the right edge under the activity panel */
+  #weaponSlots { display: flex; gap: 6px; left: 14px; position: fixed; top: 190px; z-index: 5; }
   .wslot { background: rgba(10,16,26,0.78); border: 1px solid rgba(120,180,240,0.3); border-radius: 8px; font-size: 10px; padding: 6px 7px; width: 74px; }
   .wslot.active { border-color: #ffd54f; box-shadow: 0 0 10px rgba(255,213,79,0.4); }
   .wslot.locked { opacity: 0.38; }

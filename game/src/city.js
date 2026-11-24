@@ -811,12 +811,31 @@ function buildStasiun(world) {
   // THE SIGN, twice: the original board faces the platform (+Z). The
   // street board used to sit beside it on the roofline — but the new
   // parapet hid its lower half from street level (item-16, owner:
-  // "sign-nya nggak kelihatan"). It now hangs on the FACADE, in the
-  // band between the arch tops (y 8) and the cornice (y 12.45),
-  // proud of both, rotated PI so the street reads STASIUN KOTA
-  // correctly — fully visible from the forecourt and from above.
+  // "sign-nya nggak kelihatan"). It then hung on the FACADE band
+  // (y 10.35, z cz-5.15) — and STILL lost its edges: the entrance
+  // portal columns stand at z-front 226.15, in FRONT of that plane,
+  // and from the low vista camera they clipped the S of STASIUN and
+  // the JAM of the sub-line while the cornice and canopy lines
+  // hemmed it top and bottom (owner, on the final cover: "masih
+  // ketutupan palang"). So the board now rides as a lightbox on two
+  // risers over the entrance portal at z cz-9.5 — in front of the
+  // facade, the arches, the portal columns and the canopy, with
+  // clear air on every side, so NOTHING crosses it from street
+  // level or from the vista angle. Rotated PI so the street reads
+  // STASIUN KOTA correctly.
   neonSign(world, 'STASIUN KOTA', 'KERETA MALAM • LOKET 24 JAM', '#ffb347', '#171003', 20, cx, 15.4, cz - 4.6);
-  neonSign(world, 'STASIUN KOTA', 'KERETA MALAM • LOKET 24 JAM', '#ffb347', '#171003', 19, cx, 10.35, cz - 5.15, Math.PI);
+  neonSign(world, 'STASIUN KOTA', 'KERETA MALAM • LOKET 24 JAM', '#ffb347', '#171003', 19, cx, 10.35, cz - 9.5, Math.PI);
+  const signBox = new T.Mesh(new T.BoxGeometry(19.5, 5.15, 0.3), new T.MeshPhongMaterial({ color: 0x11161f, shininess: 24 }));
+  signBox.position.set(cx, 10.35, cz - 9.3); world.add(signBox);
+  // Risers lintel -> lightbox, kept SHORT and BEHIND the board's
+  // plane: a first cut ran them 2.6 tall straddling the plane, and
+  // from the vista camera the left riser's top crossed the sub-
+  // line's J — a palang of my own making. Top now stops at y 7.70,
+  // clear of the board's bottom edge (7.975).
+  for (const px of [cx - 7, cx + 7]) {
+    const riser = new T.Mesh(new T.BoxGeometry(0.34, 0.65, 0.34), facadeMat);
+    riser.position.set(px, 7.375, cz - 9.3); world.add(riser);
+  }
   // --- the hall gets MASS: cornice + frieze, a roof volume with a
   // parapet and rooftop clutter, two side wings, and a recessed
   // entrance portal on columns — from any 3/4 angle it now reads as
