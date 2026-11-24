@@ -764,11 +764,15 @@ function buildStasiun(world) {
     }
     lightPool(world, ax, cz - 9, 7, 0xffb347, 0.3);
   }
-  // THE SIGN, twice: the original board faces the platform (+Z); this
-  // second board is rotated PI so street-side players read STASIUN
-  // KOTA correctly instead of mirrored — same canvas recipe, in-game.
+  // THE SIGN, twice: the original board faces the platform (+Z). The
+  // street board used to sit beside it on the roofline — but the new
+  // parapet hid its lower half from street level (item-16, owner:
+  // "sign-nya nggak kelihatan"). It now hangs on the FACADE, in the
+  // band between the arch tops (y 8) and the cornice (y 12.45),
+  // proud of both, rotated PI so the street reads STASIUN KOTA
+  // correctly — fully visible from the forecourt and from above.
   neonSign(world, 'STASIUN KOTA', 'KERETA MALAM • LOKET 24 JAM', '#ffb347', '#171003', 20, cx, 15.4, cz - 4.6);
-  neonSign(world, 'STASIUN KOTA', 'KERETA MALAM • LOKET 24 JAM', '#ffb347', '#171003', 20, cx, 15.4, cz - 5.1, Math.PI);
+  neonSign(world, 'STASIUN KOTA', 'KERETA MALAM • LOKET 24 JAM', '#ffb347', '#171003', 19, cx, 10.35, cz - 5.15, Math.PI);
   // --- the hall gets MASS: cornice + frieze, a roof volume with a
   // parapet and rooftop clutter, two side wings, and a recessed
   // entrance portal on columns — from any 3/4 angle it now reads as
