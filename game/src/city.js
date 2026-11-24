@@ -231,7 +231,38 @@ export function buildCity(scene) {
   return world;
 }
 
+// ------------------------------------------------------------ shopfronts
+// Ground-floor dressing for generic towers: a lit sign band, an
+// awning, a doorway with a warm transom and lit shop windows on the
+// street face — the layer that stops a tower reading as a flat slab
+// from street level. Sign textures are cached per shop name.
+const SHOP_NAMES = [
+  ['WARUNG MAKMUR', '#ffb347'], ['TOKO BERKAH', '#00e5ff'], ['KOPI KABUT', '#ff5da2'],
+  ['LAUNDRY KILOAN', '#7dff8a'], ['PANGKAS RAMBUT', '#ffd54f'], ['BAKSO SOLO', '#ff7043'],
+  ['MINIMARKET 24', '#4fc3f7'], ['APOTEK SEHAT', '#00ffc8'], ['FOTO COPY', '#c77dff'],
+  ['SATE PADANG', '#ffca7a'],
+];
+const shopTexCache = new Map();
+function shopTexture(name, fg) {
+  const key = name + fg;
+  if (shopTexCache.has(key)) return shopTexCache.get(key);
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#101319'; ctx.fillRect(0, 0, 512, 96);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = fg; ctx.shadowBlur = 16;
+  ctx.fillStyle = fg;
+  ctx.font = '900 46px Arial, sans-serif';
+  ctx.fillText(name, 256, 50);
+  const tex = new T.CanvasTexture(cv);
+  shopTexCache.set(key, tex);
+  return tex;
+}
+
 // One tower: window texture on all sides + a registered collider.
+// The dressing (corner pilasters, cornice, mid band, rooftop props,
+// street-face shopfront) adds silhouette and facade depth only —
+// footprint, height and collider stay exactly as placed.
 function tower(world, x, z, w, h, d, texBase) {
   const tex = makeWindowsTexture(texBase, rand(0.4, 0.66));
   const mat = new T.MeshPhongMaterial({
@@ -241,6 +272,89 @@ function tower(world, x, z, w, h, d, texBase) {
   m.position.set(x, h / 2, z);
   world.add(m);
   addCollider(x, z, w / 2, d / 2);
+
+  const trimMat = new T.MeshPhongMaterial({
+    color: new T.Color(texBase).multiplyScalar(0.6), shininess: 20,
+  });
+  // Corner pilasters run the full height: edges catch the light and
+  // the box stops reading as one flat extrusion.
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const pil = new T.Mesh(new T.BoxGeometry(0.55, h, 0.55), trimMat);
+    pil.position.set(x + sx * (w / 2 - 0.1), h / 2, z + sz * (d / 2 - 0.1));
+    world.add(pil);
+  }
+  // Cornice lip at the roofline (+ a mid band on tall towers).
+  const cornice = new T.Mesh(new T.BoxGeometry(w + 0.7, 0.55, d + 0.7), trimMat);
+  cornice.position.set(x, h - 0.27, z); world.add(cornice);
+  if (h > 30) {
+    const band = new T.Mesh(new T.BoxGeometry(w + 0.4, 0.4, d + 0.4), trimMat);
+    band.position.set(x, h * 0.55, z); world.add(band);
+  }
+  // Rooftop clutter: AC boxes, a water tank, an antenna with beacon.
+  const roofMat = new T.MeshPhongMaterial({ color: 0x39424e, shininess: 30 });
+  const propCount = 1 + Math.floor(rand(0, 3));
+  for (let i = 0; i < propCount; i++) {
+    const px = x + rand(-w / 2 + 2.5, w / 2 - 2.5), pz = z + rand(-d / 2 + 2.5, d / 2 - 2.5);
+    const kind = rand(0, 1);
+    if (kind < 0.45) {
+      const ac = new T.Mesh(new T.BoxGeometry(rand(1.2, 2), 0.8, rand(1, 1.6)), roofMat);
+      ac.position.set(px, h + 0.4, pz); world.add(ac);
+    } else if (kind < 0.75) {
+      const tank = new T.Mesh(new T.CylinderGeometry(0.85, 0.85, 1.7, 10),
+        new T.MeshPhongMaterial({ color: 0x546e7a, shininess: 45 }));
+      tank.position.set(px, h + 0.85, pz); world.add(tank);
+      const capTop = new T.Mesh(new T.ConeGeometry(0.95, 0.5, 10), roofMat);
+      capTop.position.set(px, h + 1.95, pz); world.add(capTop);
+    } else {
+      const antH = rand(2.5, 4.5);
+      const ant = new T.Mesh(new T.CylinderGeometry(0.05, 0.07, antH, 5), roofMat);
+      ant.position.set(px, h + antH / 2, pz); world.add(ant);
+      if (rand(0, 1) < 0.6) {
+        const beacon = new T.Mesh(new T.SphereGeometry(0.1, 6, 6), new T.MeshBasicMaterial({ color: 0xff3040 }));
+        beacon.position.set(px, h + antH + 0.1, pz); world.add(beacon);
+      }
+    }
+  }
+  // Shopfront on the face toward the nearest street line.
+  const pitch = WORLD.pitch;
+  const nearLine = v => Math.round(v / pitch) * pitch;
+  const toX = Math.abs(x - nearLine(x)), toZ = Math.abs(z - nearLine(z));
+  let rotY, half, faceLen;
+  if (toX < toZ) { rotY = nearLine(x) > x ? Math.PI / 2 : -Math.PI / 2; half = w / 2; faceLen = d; }
+  else { rotY = nearLine(z) > z ? 0 : Math.PI; half = d / 2; faceLen = w; }
+  const front = new T.Group();
+  front.position.set(x, 0, z);
+  front.rotation.y = rotY;
+  const [shopName, shopColor] = pick(SHOP_NAMES);
+  const signBand = new T.Mesh(
+    new T.PlaneGeometry(faceLen * 0.62, 0.78),
+    new T.MeshBasicMaterial({ map: shopTexture(shopName, shopColor) })
+  );
+  signBand.position.set(0, 3.32, half + 0.07);
+  front.add(signBand);
+  const awning = new T.Mesh(
+    new T.BoxGeometry(faceLen * 0.66, 0.1, 0.95),
+    new T.MeshPhongMaterial({ color: pick([0xd81b60, 0x00897b, 0xf9a825, 0x5e35b1, 0xc62828]), shininess: 30 })
+  );
+  awning.position.set(0, 2.82, half + 0.48);
+  awning.rotation.x = 0.16;
+  front.add(awning);
+  const door = new T.Mesh(new T.BoxGeometry(1.5, 2.4, 0.1),
+    new T.MeshPhongMaterial({ color: 0x0b0f16, shininess: 60, specular: 0x445577 }));
+  door.position.set(-faceLen * 0.2, 1.2, half + 0.04);
+  front.add(door);
+  const transom = new T.Mesh(new T.BoxGeometry(1.5, 0.28, 0.1), new T.MeshBasicMaterial({ color: 0xffc46b }));
+  transom.position.set(-faceLen * 0.2, 2.54, half + 0.04);
+  front.add(transom);
+  for (const s of [0.08, 0.3]) {
+    const win = new T.Mesh(new T.BoxGeometry(1.7, 1.5, 0.08), new T.MeshBasicMaterial({ color: 0xd9a45b }));
+    win.position.set(faceLen * s, 1.35, half + 0.04);
+    front.add(win);
+  }
+  world.add(front);
+  // Warm spill from the shopfront onto the wet street.
+  const outX = Math.sin(rotY), outZ = Math.cos(rotY);
+  lightPool(world, x + outX * (half + 1.7), z + outZ * (half + 1.7), 5.5, 0xffb347, 0.25);
   return m;
 }
 
