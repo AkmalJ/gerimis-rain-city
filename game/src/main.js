@@ -969,7 +969,10 @@ function updatePlayer(dt) {
   const pace = (keys.ShiftLeft || keys.ShiftRight) ? 7.6 : 4.4;
   let strafe = 0, forward = 0;
   if (keys.KeyW) forward += 1; if (keys.KeyS) forward -= 1;
-  if (keys.KeyA) strafe -= 1; if (keys.KeyD) strafe += 1;
+  // Screen-space check (rev4): with the (sin,cos) heading convention a
+  // POSITIVE atan2 offset veers screen-left, so A must add, D subtract —
+  // the old signs walked Damar right on A and left on D.
+  if (keys.KeyA) strafe += 1; if (keys.KeyD) strafe -= 1;
   const moving = strafe !== 0 || forward !== 0;
   if (moving) {
     const heading = camYaw + Math.atan2(strafe, forward);
