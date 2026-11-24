@@ -718,6 +718,34 @@ function updatePolice(dt) {
 }
 
 // ---------------- traffic / car physics ----------------
+// Vehicles are solid to the player (on foot) and to the player's car:
+// every other car is an oriented box (length from the mesh, width per
+// kind); the mover is a circle inflated into that box's local frame and
+// pushed out along the minimum-penetration axis — the same rule the
+// static AABB colliders use, rotated. Traffic-vs-traffic stays soft:
+// the grid keeps them apart and gridlock helps nobody.
+const CAR_WIDTHS = { bajaj: 1.35, bus: 2.5, angkot: 1.95, truk: 2.0 };
+function resolveVehicleCollisions(pos, radius, self) {
+  for (const car of [...parkeds, ...traffics, ...cruisers]) {
+    if (car === self || car.alive === false) continue;
+    const cp = car.mesh.position;
+    const dx = pos.x - cp.x, dz = pos.z - cp.z;
+    if (Math.abs(dx) > 9 || Math.abs(dz) > 9) continue; // longest car + slack
+    const hl = (car.mesh.userData.len || 4.2) / 2 + radius;
+    const hw = (CAR_WIDTHS[car.kind] || 1.9) / 2 + radius;
+    const s = Math.sin(car.heading), c = Math.cos(car.heading);
+    // World offset -> car local frame (forward = +Z local, as modelled).
+    const lx = dx * c - dz * s, lz = dx * s + dz * c;
+    const penX = hw - Math.abs(lx), penZ = hl - Math.abs(lz);
+    if (penX <= 0 || penZ <= 0) continue;
+    let ox = 0, oz = 0;
+    if (penX < penZ) ox = (lx > 0 ? 1 : -1) * penX; else oz = (lz > 0 ? 1 : -1) * penZ;
+    // Local push -> world frame.
+    pos.x += ox * c + oz * s;
+    pos.z += -ox * s + oz * c;
+  }
+}
+
 // One integrator for every car in the game; only the steering differs.
 function moveCar(car, dt, isPolice = false) {
   car.mesh.position.x += Math.sin(car.heading) * car.speed * dt;
@@ -873,6 +901,7 @@ function updatePlayer(dt) {
     }
     const before = car.mesh.position.clone();
     moveCar(car, dt);
+    resolveVehicleCollisions(car.mesh.position, 1.4, car); // parked/traffic cars are solid too
     // A building that eats most of a fast frame's travel is a crash.
     const travelled = before.distanceTo(car.mesh.position);
     if (Math.abs(car.speed) > 12 && travelled < Math.abs(car.speed) * dt * 0.4) {
@@ -900,6 +929,7 @@ function updatePlayer(dt) {
     pos.x += Math.sin(player.mesh.rotation.y) * pace * dt;
     pos.z += Math.cos(player.mesh.rotation.y) * pace * dt;
     resolveCollisions(pos, 0.45);
+    resolveVehicleCollisions(pos, 0.45, null); // no walking through cars
   } else if (firing && S.weaponIdx > 0) {
     // Standing and shooting: face where the camera faces.
     player.mesh.rotation.y = angleLerp(player.mesh.rotation.y, camYaw + Math.PI, dt * 12);

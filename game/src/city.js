@@ -150,6 +150,7 @@ function streetLamp(parent, x, z) {
   head.position.set(x, 5.7, z); parent.add(head);
   glowSprite(parent, x, 5.7, z, 3.6, 0xcfe6ff, 0.65);
   lightPool(parent, x, z, 8.5, 0xbfd9ff, 0.3);
+  addCollider(x, z, 0.22, 0.22); // the pole is slim, but it is solid
 }
 
 // ------------------------------------------------------------ main build
@@ -425,6 +426,7 @@ function buildTerminal(world) {
   for (let i = 0; i < 6; i++) {
     const bench = new T.Mesh(new T.BoxGeometry(3.4, 0.5, 0.8), new T.MeshPhongMaterial({ color: 0x4a5a6a }));
     bench.position.set(cx - 25 + i * 10, 0.4, cz + 8); world.add(bench);
+    addCollider(cx - 25 + i * 10, cz + 8, 1.7, 0.45);
   }
   addCollider(cx, cz - 12, 32, 1.2);
   addCollider(cx, cz + 12, 32, 1.2);
