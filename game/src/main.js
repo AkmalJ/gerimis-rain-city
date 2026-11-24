@@ -156,7 +156,10 @@ let heli = null, heliPos = new T.Vector3(0, 60, 0);
 
 // Sixteen civilians scattered across all six districts: umbrellas up or
 // hoods on, because in Gerimis nobody walks dry.
-const civSpots = [[-30, 60], [40, -20], [180, 20], [-180, 90], [60, 190], [-60, -60], [120, 60], [-120, -120], [230, 90], [-230, -40], [90, -160], [-90, 160], [10, 260], [260, 10], [-260, -160], [150, -60]];
+const civSpots = [[-30, 60], [40, -20], [180, 20], [-180, 90], [60, 190], [-60, -60], [120, 60], [-120, -120], [230, 90], [-230, -40], [90, -160], [-90, 160], [10, 260], [260, 10], [-260, -160], [150, -60],
+  // Gameplay-pass density: the station forecourt (spawn) gets a waiting
+  // crowd, and pasar / terminal / downtown sidewalks stop reading empty.
+  [30, 206], [62, 208], [16, 218], [188, 30], [214, 60], [-214, 44], [-182, 70], [8, -18], [-28, 30], [200, -150], [-150, -140], [255, 200]];
 civSpots.forEach(([sx, sz], i) => {
   const withUmbrella = Math.random() < 0.45;
   const civ = pedEntity('civ', {
@@ -187,9 +190,9 @@ parkSpots.forEach(([px, pz]) => {
   parked.name = carName(parked.kind);
   parkeds.push(parked);
 });
-// Eleven movers on the grid lines, each with a fixed compass direction
+// Seventeen movers on the grid lines, each with a fixed compass direction
 // the traffic step steers and occasionally turns at intersections.
-for (let i = 0; i < 11; i++) {
+for (let i = 0; i < 17; i++) {
   const line = pick([-190, -95, 0, 95, 190]);
   const alongX = Math.random() < 0.5;
   const mover = carEntity(pick(carKinds), alongX ? rand(-300, 300) : line, alongX ? line : rand(-300, 300), 0, 'traffic');
@@ -203,6 +206,13 @@ for (let i = 0; i < 11; i++) {
 // Terminal dressing: three buses and an angkot row under the shelter.
 for (let i = 0; i < 3; i++) { const bus = carEntity('bus', -222 + i * 20, 55, Math.PI / 2, 'parked'); bus.name = 'BUS GERIMIS TRANS'; parkeds.push(bus); }
 for (let i = 0; i < 3; i++) { const ang = carEntity('angkot', -186 + i * 13, 40, 0, 'parked'); ang.name = 'ANGKOT'; parkeds.push(ang); }
+// Station forecourt dressing (gameplay pass): a drop-off bus at the
+// arches, an angkot waiting west, two cars east — the spawn square is
+// occupied ground now, not empty slab.
+{ const bus = carEntity('bus', 64, 214, Math.PI / 2, 'parked'); bus.name = 'BUS GERIMIS TRANS'; parkeds.push(bus); }
+{ const ang = carEntity('angkot', -4, 212, 0, 'parked'); ang.name = 'ANGKOT'; parkeds.push(ang); }
+{ const sed = carEntity('sedan', 98, 212, Math.PI / 2, 'parked'); sed.name = carName('sedan'); parkeds.push(sed); }
+{ const hat = carEntity('hatch', 110, 212, -Math.PI / 2, 'parked'); hat.name = carName('hatch'); parkeds.push(hat); }
 
 function carName(kind) { return CAR_NAMES[kind] || 'MOBIL'; }
 

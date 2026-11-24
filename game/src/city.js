@@ -472,6 +472,13 @@ function buildPasar(world) {
 
 function buildStasiun(world) {
   const cx = 45, cz = 232;
+  // Flanking towers fill the reserved block's empty flanks: the station
+  // no longer sits alone on a slab, and the spawn forecourt reads as a
+  // city square the moment the player steps in.
+  tower(world, -18, 205, 20, 24, 18, '#232d3d');
+  tower(world, 110, 206, 22, 31, 20, '#28303f');
+  streetLamp(world, 0, 212);
+  streetLamp(world, 90, 212);
   const facade = new T.Mesh(
     new T.BoxGeometry(66, 13, 8),
     new T.MeshPhongMaterial({ color: 0x2c3644, shininess: 30 })
