@@ -130,6 +130,17 @@ export function installStaging(api) {
     // horizon and raises the ambient/hemisphere base so facades,
     // vehicles and asphalt read WITH COLOUR while the neon pops
     // against the blue instead of drowning in black.
+    //
+    // REV1G — the owner approved f's postcard ("nah bagus") with
+    // two notes: it is still not PADAT — add the big buildings so
+    // it reads as a real city — and the station reads as just a
+    // wall. Frame g (the default now) keeps f's subject, light and
+    // composition family and answers both notes with staging-only
+    // dressing: a packed backdrop skyline in the game's own tower
+    // recipe behind and around the station, real architecture on
+    // the facade (cornice, canopy, pilasters, entrance portal,
+    // lamp posts, apron edge), and a fuller forecourt with a bus
+    // and angkot drop-off queue.
     vista() {
       api.seedStats(SHOWCASE);
       api.startJobAt(5); // JOB 6 sits on offer — the panel reads calm
@@ -229,8 +240,8 @@ export function installStaging(api) {
           shopper.mesh.userData.holdsUmbrella = true;
         });
         api.setCam([208, 10, 90], [186, 2.5, 26]);
-      } else {
-        // F (default) — the station postcard at blue hour, rev1f.
+      } else if (frame === 'f') {
+        // F — the station postcard at blue hour, rev1f.
         // BLUE HOUR first: repaint the sky a deep rainy blue, lift
         // the fog to a lighter steel blue (distance melts into a
         // horizon glow instead of black), and raise the ambient /
@@ -294,6 +305,164 @@ export function installStaging(api) {
         // both frame edges, traffic and umbrella peds filling the
         // foreground apron and the road below.
         api.setCam([6, 9, 174], [46, 8, 233]);
+      } else {
+        // G (default) — the station postcard, densified, rev1g.
+        // Same blue hour as f (sky, fog, light bases repainted
+        // identically), same street-facing sign twin, same
+        // composition family — plus the skyline, the facade
+        // architecture and the forecourt density the owner asked
+        // for. Everything below is staging-only dressing.
+        scene.background = new T.Color(0x1e3a63);
+        scene.fog.color.set(0x39598c);
+        scene.fog.density = 0.0021;
+        scene.traverse(o => {
+          if (o.isAmbientLight) { o.color.set(0x5f7fb4); o.intensity = 1.15; }
+          else if (o.isHemisphereLight) { o.color.set(0x51749f); o.groundColor.set(0x141c2a); o.intensity = 0.9; }
+          else if (o.isDirectionalLight) { o.color.set(0xa8c8f0); o.intensity = 0.75; }
+        });
+        // Sign twin, same recipe as f: the game's own board faces
+        // the platform and reads mirrored from the street.
+        const signCv = document.createElement('canvas'); signCv.width = 1024; signCv.height = 256;
+        const sctx = signCv.getContext('2d');
+        sctx.fillStyle = '#171003'; sctx.fillRect(0, 0, 1024, 256);
+        sctx.textAlign = 'center'; sctx.textBaseline = 'middle';
+        sctx.shadowColor = '#ffb347'; sctx.shadowBlur = 42;
+        sctx.fillStyle = '#ffb347';
+        sctx.font = '900 118px Arial, sans-serif';
+        sctx.fillText('STASIUN KOTA', 512, 104);
+        sctx.shadowBlur = 18; sctx.fillText('STASIUN KOTA', 512, 104);
+        sctx.font = '700 54px Arial, sans-serif';
+        sctx.fillStyle = '#eaf6ff'; sctx.shadowBlur = 10;
+        sctx.fillText('KERETA MALAM • LOKET 24 JAM', 512, 200);
+        const signTwin = new T.Mesh(
+          new T.PlaneGeometry(20, 5),
+          new T.MeshBasicMaterial({ map: new T.CanvasTexture(signCv), side: T.DoubleSide })
+        );
+        signTwin.position.set(45, 15.4, 227.15);
+        signTwin.rotation.y = Math.PI;
+        scene.add(signTwin);
+        // Backdrop skyline in the game's own tower recipe (canvas
+        // window grid, emissive map, downtown facade tones): a
+        // packed wall of towers behind the station and flanking
+        // it, so the postcard sits inside a big city. The real
+        // downtown towers are all south of the station (behind
+        // this camera), which is why f's skyline read thin.
+        const towerTex = base => {
+          const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256;
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = base; ctx.fillRect(0, 0, 128, 256);
+          const lit = ['#ffd98a', '#ffe9b0', '#a8e6ff', '#ffc4dd'];
+          for (let row = 0; row < 12; row++) {
+            for (let col = 0; col < 5; col++) {
+              ctx.fillStyle = Math.random() < 0.55 ? lit[(Math.random() * lit.length) | 0] : '#131a24';
+              ctx.fillRect(10 + col * 24, 12 + row * 20, 15, 11);
+            }
+          }
+          return new T.CanvasTexture(cv);
+        };
+        const backdrop = (x, z, w, h, d, base) => {
+          const tex = towerTex(base);
+          const m = new T.Mesh(
+            new T.BoxGeometry(w, h, d),
+            new T.MeshPhongMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55, shininess: 24 })
+          );
+          m.position.set(x, h / 2, z);
+          scene.add(m);
+        };
+        const facadeTones = ['#232d3d', '#1f2735', '#28303f', '#202833'];
+        backdrop(-52, 258, 18, 28, 18, facadeTones[0]);  // west flank-back
+        backdrop(-18, 274, 22, 36, 20, facadeTones[1]);  // behind, west of centre
+        backdrop(22, 284, 24, 46, 22, facadeTones[2]);   // behind centre — tallest
+        backdrop(58, 278, 20, 31, 20, facadeTones[3]);   // behind, east of centre
+        backdrop(96, 286, 24, 41, 22, facadeTones[0]);   // behind, east
+        backdrop(132, 270, 20, 27, 18, facadeTones[1]);  // east flank-back
+        backdrop(-28, 244, 16, 24, 16, facadeTones[2]);  // west near flank
+        backdrop(118, 247, 16, 23, 16, facadeTones[3]);  // east near flank
+        backdrop(-64, 226, 18, 30, 18, facadeTones[1]);  // far-west edge, station latitude
+        backdrop(152, 224, 18, 33, 18, facadeTones[2]);  // far-east edge, station latitude
+        // Facade architecture. The game's station front is one
+        // flat 66×13 box with six glowing rectangles; staging
+        // gives it a cornice and lit frieze along the roofline, a
+        // canopy over the arches on slim columns with a warm glow
+        // underneath, pilasters between the window bays, a framed
+        // entrance portal around the centre arch pair, a raised
+        // apron edge and lamp posts — depth enough to read as a
+        // station building, not a wall.
+        const stone = new T.MeshPhongMaterial({ color: 0x39485c, shininess: 40, specular: 0x66788f });
+        const stoneDark = new T.MeshPhongMaterial({ color: 0x232d3b, shininess: 30 });
+        const cornice = new T.Mesh(new T.BoxGeometry(68, 1.3, 9.6), stone);
+        cornice.position.set(45, 13.4, 232); scene.add(cornice);
+        const frieze = new T.Mesh(new T.BoxGeometry(68, 0.35, 9.7), new T.MeshBasicMaterial({ color: 0xffb347 }));
+        frieze.position.set(45, 12.6, 232); scene.add(frieze);
+        const canopy = new T.Mesh(new T.BoxGeometry(62, 0.55, 5.5), stone);
+        canopy.position.set(45, 9.3, 225.6); scene.add(canopy);
+        const canopyGlow = new T.Mesh(new T.BoxGeometry(62, 0.16, 5.5), new T.MeshBasicMaterial({ color: 0xffc46b }));
+        canopyGlow.position.set(45, 8.95, 225.6); scene.add(canopyGlow);
+        for (const px of [16, 30, 60, 74]) {
+          const col = new T.Mesh(new T.CylinderGeometry(0.14, 0.14, 9, 6), stoneDark);
+          col.position.set(px, 4.5, 223.4); scene.add(col);
+        }
+        for (const px of [12.8, 23.5, 34.5, 56.5, 67.5, 77.2]) {
+          const pil = new T.Mesh(new T.BoxGeometry(1.5, 13, 1.4), stone);
+          pil.position.set(px, 6.5, 227.5); scene.add(pil);
+        }
+        for (const px of [37.8, 53.2]) {
+          const pcol = new T.Mesh(new T.BoxGeometry(1.9, 11, 2.1), stone);
+          pcol.position.set(px, 5.5, 227.2); scene.add(pcol);
+        }
+        const lintel = new T.Mesh(new T.BoxGeometry(17.3, 1.6, 2.1), stone);
+        lintel.position.set(45.5, 10.7, 227.2); scene.add(lintel);
+        const lintelGlow = new T.Mesh(new T.BoxGeometry(17.3, 0.3, 2.2), new T.MeshBasicMaterial({ color: 0xffb347 }));
+        lintelGlow.position.set(45.5, 9.75, 227.2); scene.add(lintelGlow);
+        const apron = new T.Mesh(new T.BoxGeometry(66, 0.35, 3), new T.MeshPhongMaterial({ color: 0x39424e, shininess: 50, specular: 0x77879f }));
+        apron.position.set(45, 0.18, 221.5); scene.add(apron);
+        const apronLine = new T.Mesh(new T.BoxGeometry(66, 0.1, 0.4), new T.MeshBasicMaterial({ color: 0xffb347 }));
+        apronLine.position.set(45, 0.4, 220.1); scene.add(apronLine);
+        const lampAt = (x, z) => {
+          const pole = new T.Mesh(new T.CylinderGeometry(0.09, 0.12, 4.6, 6), stoneDark);
+          pole.position.set(x, 2.3, z); scene.add(pole);
+          const head = new T.Mesh(new T.SphereGeometry(0.34, 10, 8), new T.MeshBasicMaterial({ color: 0xcfe4ff }));
+          head.position.set(x, 4.8, z); scene.add(head);
+          const pool = new T.Mesh(new T.CircleGeometry(3, 16), new T.MeshBasicMaterial({ color: 0x8fb6e8, transparent: true, opacity: 0.16 }));
+          pool.rotation.x = -Math.PI / 2; pool.position.set(x, 0.06, z); scene.add(pool);
+        };
+        [[16, 216], [34, 214.5], [56, 214.5], [74, 216]].forEach(([x, z]) => lampAt(x, z));
+        // Damar on the forecourt facing his station; the GT
+        // waits east of the entrance as a life detail.
+        player.mesh.position.set(40, 0, 206);
+        player.mesh.rotation.y = 0;
+        heroCar.mesh.position.set(66, 0, 209);
+        heroCar.mesh.rotation.y = -0.35;
+        // Drop-off queue along the apron: a BUS MALAM loading at
+        // the doors, two angkot queued behind it, a bajaj waiting
+        // by the arches, a sedan parked at the east end.
+        const busQ = api.carEntity('bus', 22, 213.5, Math.PI / 2, 'traffic', 0x4fc3f7); busQ.speed = 0;
+        const qA1 = api.carEntity('angkot', 39, 213.5, Math.PI / 2, 'traffic', 0xffc400); qA1.speed = 0;
+        const qA2 = api.carEntity('angkot', 52, 213.5, Math.PI / 2, 'traffic', 0xffc400); qA2.speed = 0;
+        const waitBajaj = api.carEntity('bajaj', 33, 217.5, Math.PI, 'traffic', 0xff9100); waitBajaj.speed = 0;
+        const parkSedan = api.carEntity('sedan', 76, 216.5, -0.15, 'traffic', 0x90a4ae); parkSedan.speed = 0;
+        // Jalan Stasiun traffic in the near foreground: two
+        // eastbound, two westbound, headlights on the wet asphalt.
+        const roadA = api.carEntity('angkot', 82, 193.5, Math.PI / 2, 'traffic', 0xffc400); roadA.speed = 0;
+        const roadH = api.carEntity('hatch', 28, 193.5, Math.PI / 2, 'traffic', 0x7e57c2); roadH.speed = 0;
+        const roadS = api.carEntity('sedan', -6, 186.5, -Math.PI / 2, 'traffic', 0x90a4ae); roadS.speed = 0;
+        const roadB = api.carEntity('bajaj', -26, 186.5, -Math.PI / 2, 'traffic', 0xff9100); roadB.speed = 0;
+        // Umbrella peds crossing the apron — a real crowd this
+        // time, three of them near the camera so the life reads
+        // at full size, the rest threading between the queue and
+        // the entrance.
+        [[24, 197, 0.3], [52, 198, -0.4], [68, 196.5, 0.2],
+         [14, 204, 0.35], [21, 209, -0.3], [30, 202, 0.4], [36, 218.5, -0.35],
+         [44, 205, 0.3], [49, 219, 0.4], [58, 203, -0.4], [63, 218, 0.35],
+         [70, 207, -0.3], [77, 202, 0.4], [82, 210, -0.35]].forEach(([px, pz, ph], i) => {
+          const walker = api.pedEntity('civ', { umbrella: umbrellaPalette[i % umbrellaPalette.length] }, px, pz, ph);
+          walker.mesh.userData.holdsUmbrella = true;
+        });
+        // Slightly lower and closer than f, aimed up the stack:
+        // forecourt at the bottom, dressed facade in the middle,
+        // the packed skyline rising behind it, sky only as a top
+        // band.
+        api.setCam([12, 6.8, 183], [47, 10, 235]);
       }
     },
 
