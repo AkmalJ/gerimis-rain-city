@@ -76,6 +76,42 @@ export function installStaging(api) {
       api.setCam([1.5, 2.7, 27], [-3.5, 6.5, -42]);
     },
 
+    // VISTA — rev1b cover: the city itself is the subject. The owner
+    // bounced the chase framing as clutter ("berantakan") and asked
+    // for the opposite: a calm, wide establishing frame where GERIMIS
+    // reads as a whole open world — districts, landmarks, ambient
+    // traffic, rain. No wanted, no roadblock, no cone; the GT is one
+    // life detail among many. Probe rounds over the downtown, station
+    // and jalur overlooks settled on Pasar Kabut: the legible pink
+    // sign, the awning grid, umbrella shoppers in the aisles, towers
+    // standing behind the market and the street grid running out of
+    // frame — one breath that sells the whole rain city.
+    vista() {
+      api.seedStats(SHOWCASE);
+      api.startJobAt(5); // JOB 6 sits on offer — the panel reads calm
+      S.jobState = 'offer';
+      scene.fog.density = 0.0026; // thinner than capture norm: layers must read
+      // Damar in the market aisle, umbrella shoppers threaded around.
+      player.mesh.position.set(196, 0, 52);
+      player.mesh.rotation.y = Math.PI;
+      const umbrellaPalette = [0xd81b60, 0x00897b, 0xf9a825, 0x3949ab, 0xc62828, 0x2e7d32];
+      [[186, 34], [201, 38], [216, 33], [188, 51], [203, 55], [218, 50], [193, 66], [210, 68]].forEach(([px, pz], i) => {
+        const shopper = api.pedEntity('civ', { umbrella: umbrellaPalette[i % umbrellaPalette.length] }, px, pz, Math.PI + (i % 2 ? 0.4 : -0.3));
+        shopper.mesh.userData.holdsUmbrella = true;
+      });
+      // The GT as a life detail on the market's south approach road,
+      // an angkot crossing the junction, a bajaj and a sedan on the
+      // frame streets — traffic, not a chase.
+      heroCar.mesh.position.set(189.5, 0, -38);
+      heroCar.mesh.rotation.y = 0;
+      api.carEntity('angkot', 148, 1.5, Math.PI / 2, 'traffic', 0xffc400);
+      api.carEntity('bajaj', 191.5, 92, Math.PI, 'traffic', 0xff9100);
+      api.carEntity('sedan', 232, -1.5, -Math.PI / 2, 'traffic', 0x90a4ae);
+      // Elevated south-east of the market, looking across the stalls
+      // to the sign and the towers behind it.
+      api.setCam([214, 17, 112], [182, 3, 22]);
+    },
+
     // DUEL — a Pasar Kabut aisle gunfight. Hero west aiming east, three
     // Anak Kabut down the lane with staggered first shots, so the frame
     // can hold travelling streaks in both directions at once.
