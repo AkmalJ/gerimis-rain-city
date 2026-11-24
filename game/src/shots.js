@@ -94,6 +94,17 @@ export function installStaging(api) {
     // pools sit on the stalls' north faces and the lamp line at
     // x=180.4 spears aisle views — so each framing below is the
     // survivor of its family, not a first guess.
+    //
+    // REV1D — the owner's final word on the cover: the vista idea is
+    // right, but come DOWN to the street, make the stall order read
+    // and put the sign where it cannot be missed. Frame d (now the
+    // default) stands in the market's west gap at 3.4 m, looking
+    // along the aisle axis: the lamp line at x=180.4 marches down
+    // the view but passes just east of the sign, the stall rows
+    // converge on both sides, and the 21 m PASAR KABUT board closes
+    // the vista large enough to read at thumbnail size. An angkot
+    // waits at the west mouth and umbrella shoppers thread the aisle
+    // — life at the edges, the market itself as the subject.
     vista() {
       api.seedStats(SHOWCASE);
       api.startJobAt(5); // JOB 6 sits on offer — the panel reads calm
@@ -139,10 +150,27 @@ export function installStaging(api) {
         // stand behind the sign.
         heroCar.mesh.position.set(189.5, 0, 71);
         api.setCam([152, 9.5, 94], [197, 3, 33]);
-      } else {
-        // Elevated south-east of the market, looking across the stalls
-        // to the sign and the towers behind it (the rev1b original).
+      } else if (frame === 'b2') {
+        // The rev1b original, kept for reference: elevated south-east
+        // of the market, looking across the stalls to the sign and
+        // the towers behind it.
         api.setCam([214, 17, 112], [182, 3, 22]);
+      } else {
+        // D (default) — street level in the west gap, rev1d. The
+        // angkot waits at the market's west mouth with its front to
+        // the street; three more shoppers thread the aisle so the
+        // mid-distance carries life between the converging rows.
+        api.carEntity('angkot', 169.5, 53, 0, 'traffic', 0xffc400);
+        const aisleDress = [
+          [0xd81b60, 173, 47, Math.PI],
+          [0xf9a825, 186, 36, Math.PI + 0.3],
+          [0x00897b, 183, 44, Math.PI - 0.2],
+        ];
+        aisleDress.forEach(([c, px, pz, ph]) => {
+          const shopper = api.pedEntity('civ', { umbrella: c }, px, pz, ph);
+          shopper.mesh.userData.holdsUmbrella = true;
+        });
+        api.setCam([176.5, 3.4, 64], [180, 5.3, 19]);
       }
     },
 
