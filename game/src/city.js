@@ -229,6 +229,11 @@ export function buildCity(scene) {
   buildStasiun(world);
   buildKampung(world);
   buildJalur(world);
+  // Ruko rows (P5): station street west + east (fronting the spawn
+  // street) and the downtown z=0 road's north side.
+  rukoRow(world, -88, 163, 1, 8);
+  rukoRow(world, 40, 163, 1, 8);
+  rukoRow(world, -70, -14, 1, 8);
   streetProps(world);
   // Shadow contract: solid Phong geometry casts and receives; flat
   // Phong planes/discs (ground, roads, sidewalks, puddles) receive
@@ -252,7 +257,11 @@ const SHOP_NAMES = [
   ['WARUNG MAKMUR', '#ffb347'], ['TOKO BERKAH', '#00e5ff'], ['KOPI KABUT', '#ff5da2'],
   ['LAUNDRY KILOAN', '#7dff8a'], ['PANGKAS RAMBUT', '#ffd54f'], ['BAKSO SOLO', '#ff7043'],
   ['MINIMARKET 24', '#4fc3f7'], ['APOTEK SEHAT', '#00ffc8'], ['FOTO COPY', '#c77dff'],
-  ['SATE PADANG', '#ffca7a'],
+  ['SATE PADANG', '#ffca7a'], ['KONTER PULSA', '#ffe082'], ['SATE MADURA', '#ff8a65'],
+  ['MINIMARKET', '#81d4fa'], ['HOTEL MELATI', '#f48fb1'], ['TOKO ROTI', '#ffcc80'],
+  ['PENJAHIT', '#a5d6a7'], ['SALON', '#ce93d8'], ['RENTAL PS', '#90caf9'],
+  ['BENGKEL MOTOR', '#ffab91'], ['FOTOKOPI', '#b39ddb'], ['WARUNG TEGAL', '#fff59d'],
+  ['TOKO OBAT', '#80cbc4'], ['KEDAI SUSU', '#ffecb3'],
 ];
 const shopTexCache = new Map();
 function shopTexture(name, fg) {
@@ -269,6 +278,34 @@ function shopTexture(name, fg) {
   const tex = new T.CanvasTexture(cv);
   shopTexCache.set(key, tex);
   return tex;
+}
+
+// Ruko row (P5): narrow 2–3 storey shophouses side by side, each a
+// different muted colour with its OWN readable signboard facing the
+// street (face=+1 fronts +z, face=-1 fronts -z; signs use the cached
+// shop textures and are never mirrored). One collider per unit.
+const RUKO_TONES = [0x8d6e63, 0x78909c, 0xa1887f, 0x90a4ae, 0x9e7d68, 0x6d8ea0, 0xb09a7a, 0x7a8b6f];
+function rukoRow(world, x0, z, face, count) {
+  for (let i = 0; i < count; i++) {
+    const cx = x0 + i * 7 + 3.5;
+    const h = pick([7, 8.75, 10.5]);
+    const tone = pick(RUKO_TONES);
+    const body = new T.Mesh(new T.BoxGeometry(6.9, h, 8), new T.MeshPhongMaterial({ color: tone, shininess: 14 }));
+    body.position.set(cx, h / 2, z); world.add(body);
+    const cap = new T.Mesh(new T.BoxGeometry(7.3, 0.4, 8.5), new T.MeshPhongMaterial({ color: new T.Color(tone).multiplyScalar(0.55), shininess: 10 }));
+    cap.position.set(cx, h + 0.2, z); world.add(cap);
+    const [name, color] = SHOP_NAMES[(i * 3 + Math.floor(rand(0, 3))) % SHOP_NAMES.length];
+    const sign = new T.Mesh(new T.PlaneGeometry(6.3, 1.15),
+      new T.MeshBasicMaterial({ map: shopTexture(name, color) }));
+    sign.position.set(cx, h - 1.45, z + face * 4.07);
+    sign.rotation.y = face > 0 ? 0 : Math.PI;
+    world.add(sign);
+    const awn = new T.Mesh(new T.BoxGeometry(6.4, 0.12, 1.5), new T.MeshPhongMaterial({ color: 0x37474f, shininess: 20 }));
+    awn.position.set(cx, h - 2.25, z + face * 4.6); awn.rotation.x = face * 0.28; world.add(awn);
+    const door = new T.Mesh(new T.BoxGeometry(1.3, 2.6, 0.1), new T.MeshPhongMaterial({ color: 0x14100c, emissive: 0xff9a3c, emissiveIntensity: 0.25 }));
+    door.position.set(cx - 1.6, 1.3, z + face * 4.03); world.add(door);
+    addCollider(cx, z, 3.5, 4);
+  }
 }
 
 // One tower: window texture on all sides + a registered collider.
@@ -301,6 +338,24 @@ function tower(world, x, z, w, h, d, texBase) {
   if (h > 30) {
     const band = new T.Mesh(new T.BoxGeometry(w + 0.4, 0.4, d + 0.4), trimMat);
     band.position.set(x, h * 0.55, z); world.add(band);
+  }
+  // P5 variety: half the tall towers step back into a smaller upper
+  // tier, and a third grow a low L-annex on one flank (own collider) —
+  // the grid stops reading as identical extrusions.
+  if (h >= 22 && rand(0, 1) < 0.5) {
+    const tw = w * 0.62, td = d * 0.62, th = h * 0.34;
+    const tier = new T.Mesh(new T.BoxGeometry(tw, th, td), mat);
+    tier.position.set(x, h + th / 2, z); world.add(tier);
+    const tcap = new T.Mesh(new T.BoxGeometry(tw + 0.6, 0.5, td + 0.6), trimMat);
+    tcap.position.set(x, h + th - 0.25, z); world.add(tcap);
+  }
+  if (rand(0, 1) < 0.35) {
+    const side = rand(0, 1) < 0.5 ? 1 : -1;
+    const aw = w * 0.45, ad = d * 0.6, ah = rand(6, 10);
+    const ax = x + side * (w / 2 + aw / 2);
+    const annex = new T.Mesh(new T.BoxGeometry(aw, ah, ad), mat);
+    annex.position.set(ax, ah / 2, z); world.add(annex);
+    addCollider(ax, z, aw / 2, ad / 2);
   }
   // Round-2 silhouette work: some towers wear a second, lower cornice
   // lip, and mid-rise towers grow balcony rows on one flank — slab +
