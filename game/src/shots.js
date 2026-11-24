@@ -7,7 +7,7 @@
 
 const T = window.THREE;
 import { pick } from './config.js';
-import { giveGun, gunMuzzleWorld, animatePed } from './actors.js';
+import { giveGun, gunMuzzleWorld, animatePed, makeHeli } from './actors.js';
 
 // The showcase save every in-world case shares: a Damar who has clearly
 // been busy — money in the bank, five jobs closed, most parcels found,
@@ -560,6 +560,48 @@ export function installStaging(api) {
         fx.muzzleStar(from.clone(), 1.0);
         fx.fireStreak(from, dir, from.distanceTo(chest), 125, () => fx.impactBurst(chest, 5));
       };
+      // REV11 — AIR ONE over the market (owner 21:24: the duel needs
+      // a police helicopter in the sky with its spotlight on the
+      // fight). The game's real AIR ONE orbits the player at 16 m —
+      // from this low camera its body never enters the frame, only
+      // its vertical cone would. So: one staged heli from the game's
+      // own makeHeli asset, high behind the market's north-east
+      // corner, with its beam drawn as a separate cone aimed at the
+      // aisle among the far gunmen + a light pool where it lands.
+      const stagedHeli = makeHeli();
+      stagedHeli.userData.stagedHeli = true;
+      stagedHeli.position.set(264, 35, 30);
+      stagedHeli.rotation.y = -Math.PI / 2 + 0.35; // nose west, quartered toward the duel
+      // Its own child cone hangs vertical; hide it — the aimed beam
+      // below replaces it.
+      stagedHeli.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'ConeGeometry') o.visible = false; });
+      scene.add(stagedHeli);
+      const poolAt = new T.Vector3(233, 0, 51);
+      const bellyAt = new T.Vector3(264, 34.2, 30);
+      const beamLen = bellyAt.distanceTo(poolAt);
+      const beam = new T.Mesh(
+        new T.ConeGeometry(7.5, beamLen, 14, 1, true),
+        new T.MeshBasicMaterial({ color: 0xfff3c4, transparent: true, opacity: 0.13, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide })
+      );
+      beam.position.copy(bellyAt).add(poolAt).multiplyScalar(0.5);
+      beam.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), bellyAt.clone().sub(poolAt).normalize());
+      scene.add(beam);
+      const poolDisc = new T.Mesh(
+        new T.CircleGeometry(7.5, 24),
+        new T.MeshBasicMaterial({ color: 0xfff0bb, transparent: true, opacity: 0.16, blending: T.AdditiveBlending, depthWrite: false })
+      );
+      poolDisc.rotation.x = -Math.PI / 2;
+      poolDisc.position.set(poolAt.x, 0.04, poolAt.z);
+      scene.add(poolDisc);
+      // Hide the real orbiting AIR ONE when the capture script raises
+      // wanted to 4: exactly one aircraft reads in the frame. The
+      // wanted stars and the POLRESTA dispatch roster (AIR ONE line
+      // included) stay the real system's own output.
+      setInterval(() => {
+        for (const c of scene.children) {
+          if (c.userData && c.userData.rotor && !c.userData.stagedHeli) c.visible = false;
+        }
+      }, 120);
       // Over Damar's right shoulder from the aisle's south side, low:
       // looking east, screen-right runs along +z, so the camera sits at
       // the higher z to hold the hero large and whole at the LEFT while
