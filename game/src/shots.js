@@ -95,16 +95,27 @@ export function installStaging(api) {
     // x=180.4 spears aisle views — so each framing below is the
     // survivor of its family, not a first guess.
     //
-    // REV1D — the owner's final word on the cover: the vista idea is
+    // REV1D — the owner's word on the cover: the vista idea is
     // right, but come DOWN to the street, make the stall order read
-    // and put the sign where it cannot be missed. Frame d (now the
-    // default) stands in the market's west gap at 3.4 m, looking
-    // along the aisle axis: the lamp line at x=180.4 marches down
-    // the view but passes just east of the sign, the stall rows
-    // converge on both sides, and the 21 m PASAR KABUT board closes
-    // the vista large enough to read at thumbnail size. An angkot
-    // waits at the west mouth and umbrella shoppers thread the aisle
-    // — life at the edges, the market itself as the subject.
+    // and put the sign where it cannot be missed. Frame d stands in
+    // the market's west gap at 3.4 m, looking along the aisle axis:
+    // the lamp line at x=180.4 marches down the view but passes just
+    // east of the sign, the stall rows converge on both sides, and
+    // the 21 m PASAR KABUT board closes the vista large enough to
+    // read at thumbnail size. An angkot waits at the west mouth and
+    // umbrella shoppers thread the aisle — life at the edges.
+    //
+    // REV1E — the owner's next word, and the current default: frame
+    // d fixed the sign and the closeness but shows ONE lane, not a
+    // city — its middle is a dark empty street. "Harus nampilin isi
+    // kota, biar kelihatan hidup dan kelihatan open world-nya": the
+    // cover must display the CONTENTS of the city. Frame e pulls
+    // back up to a medium three-quarter (~10.5 m) over the market's
+    // south junction and fills EVERY depth layer: staged dense
+    // traffic on the foreground streets, the market full of
+    // shoppers in the midground, the sign closing the vista as the
+    // focal, towers and rain behind. Nothing in frame is scenery
+    // alone — every layer carries vehicles, people or signage.
     vista() {
       api.seedStats(SHOWCASE);
       api.startJobAt(5); // JOB 6 sits on offer — the panel reads calm
@@ -155,8 +166,8 @@ export function installStaging(api) {
         // of the market, looking across the stalls to the sign and
         // the towers behind it.
         api.setCam([214, 17, 112], [182, 3, 22]);
-      } else {
-        // D (default) — street level in the west gap, rev1d. The
+      } else if (frame === 'd') {
+        // D — street level in the west gap, rev1d. The
         // angkot waits at the market's west mouth with its front to
         // the street; three more shoppers thread the aisle so the
         // mid-distance carries life between the converging rows.
@@ -171,6 +182,39 @@ export function installStaging(api) {
           shopper.mesh.userData.holdsUmbrella = true;
         });
         api.setCam([176.5, 3.4, 64], [180, 5.3, 19]);
+      } else {
+        // E (default) — the full-city cover, rev1e. Medium
+        // three-quarter over the market's south junction, every
+        // depth layer filled: a staged rush on the foreground
+        // streets (angkot, truk sayur, sedan, bajaj around the GT),
+        // eight extra shoppers crowding the aisles and the south
+        // edge on top of the base crowd, the PASAR KABUT sign
+        // closing the vista as the focal, towers and rain behind.
+        heroCar.mesh.position.set(206, 0, 74);
+        heroCar.mesh.rotation.y = -0.3;
+        const rush = [
+          ['angkot', 193, 72, Math.PI / 2, 0xffc400],
+          ['bajaj', 198, 68, Math.PI / 2, 0xff9100],
+          ['sedan', 214, 68, Math.PI / 2, 0x90a4ae],
+          ['truk', 225, 2, -Math.PI / 2, 0x66bb6a],
+          ['hatch', 172, 48, Math.PI / 2, 0x7e57c2],
+        ];
+        rush.forEach(([kind, vx, vz, vh, vc]) => {
+          const v = api.carEntity(kind, vx, vz, vh, 'traffic', vc);
+          v.speed = 0; // staged stills: the rush holds its marks
+        });
+        const crowdE = [
+          [176, 40], [180, 57], [173, 63], [224, 42],
+          [228, 58], [183, 67], [210, 66], [217, 60],
+          [190, 64], [205, 58], [215, 70], [199, 44],
+          [193, 50], [221, 50], [186, 76],
+          [202, 47], [176, 52],
+        ];
+        crowdE.forEach(([px, pz], i) => {
+          const shopper = api.pedEntity('civ', { umbrella: umbrellaPalette[i % umbrellaPalette.length] }, px, pz, Math.PI + (i % 2 ? 0.35 : -0.3));
+          shopper.mesh.userData.holdsUmbrella = true;
+        });
+        api.setCam([208, 10, 90], [186, 2.5, 26]);
       }
     },
 
