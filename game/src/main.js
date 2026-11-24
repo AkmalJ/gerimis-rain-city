@@ -69,6 +69,8 @@ function applySave(data) {
 const renderer = new T.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = T.PCFSoftShadowMap;
 document.getElementById('game').appendChild(renderer.domElement);
 
 const scene = new T.Scene();
@@ -76,13 +78,30 @@ scene.background = new T.Color(PAL.sky);
 scene.fog = new T.FogExp2(PAL.fog, PAL.fogDensity);
 const camera = new T.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 900);
 
-// Lighting recipe for the rain look: a cool ambient + hemisphere base, a
-// pale moon key light, and one warm point glow at the city centre so the
-// slate world always has amber in it — the MENCOLOK contrast the neon
-// signs then sharpen.
-scene.add(new T.AmbientLight(PAL.ambient, 0.75));
-const hemisphere = new T.HemisphereLight(PAL.hemiSky, PAL.hemiGround, 0.55); scene.add(hemisphere);
-const moonlight = new T.DirectionalLight(0x8fb4e8, 0.5); moonlight.position.set(-120, 200, -80); scene.add(moonlight);
+// Lighting recipe for the rain look: a cool ambient + hemisphere base,
+// a pale moon key light, and one warm point glow at the city centre so
+// the slate world always has amber in it — the MENCOLOK contrast the
+// neon signs then sharpen. The key light CASTS: one directional with
+// a modest shadow map whose ortho box rides the action (see loop),
+// ambient trimmed down so forms model with real light and shade
+// instead of reading as flat cutouts. Night-rain mood kept — just
+// with depth.
+scene.add(new T.AmbientLight(PAL.ambient, 0.52));
+const hemisphere = new T.HemisphereLight(PAL.hemiSky, PAL.hemiGround, 0.45); scene.add(hemisphere);
+const moonlight = new T.DirectionalLight(0x8fb4e8, 0.9);
+moonlight.position.set(-60, 100, -40);
+moonlight.castShadow = true;
+moonlight.shadow.mapSize.set(2048, 2048);
+moonlight.shadow.camera.left = -62;
+moonlight.shadow.camera.right = 62;
+moonlight.shadow.camera.top = 62;
+moonlight.shadow.camera.bottom = -62;
+moonlight.shadow.camera.near = 30;
+moonlight.shadow.camera.far = 280;
+moonlight.shadow.bias = -0.0004;
+moonlight.shadow.normalBias = 0.03;
+moonlight.shadow.camera.updateProjectionMatrix();
+scene.add(moonlight); scene.add(moonlight.target);
 const cityGlow = new T.PointLight(0xff9a3c, 0.7, 420); cityGlow.position.set(0, 26, 0); scene.add(cityGlow);
 
 buildCity(scene);
@@ -1068,6 +1087,12 @@ function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), 0.05);
   const anchor = S.driving && playerCar ? playerCar.mesh.position : player.mesh.position;
+  // The shadow key light rides the action: its ortho box stays
+  // centred on what the camera watches (the title vista anchors on
+  // the downtown street instead of on Damar).
+  const lightAnchor = S.mode === 'title' ? TITLE_ANCHOR : anchor;
+  moonlight.position.set(lightAnchor.x - 60, 100, lightAnchor.z - 40);
+  moonlight.target.position.set(lightAnchor.x, 0, lightAnchor.z);
 
   if (S.mode === 'title') {
     titleAngkot.mesh.position.x += titleAngkot.speed * dt;

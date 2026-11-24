@@ -22,8 +22,8 @@ function brick(w, h, d, color, opts = {}) {
       emissiveIntensity: opts.ei ?? 1,
     })
   );
-  mesh.castShadow = false;
-  mesh.receiveShadow = false;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   return mesh;
 }
 
@@ -199,7 +199,7 @@ export function makeGunMesh(kind) {
   const bodyMat = new T.MeshPhongMaterial({ color: 0x14161a, shininess: 70 });
   const steelMat = new T.MeshPhongMaterial({ color: 0x9aa4ae, shininess: 90 });
   const part = (geo, mat, x, y, z) => {
-    const m = new T.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m;
+    const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m;
   };
   if (kind === 'p9') {
     part(new T.BoxGeometry(0.055, 0.11, 0.24), bodyMat, 0, 0, 0.02);      // frame
@@ -257,6 +257,7 @@ function tyre(r = 0.34) {
     new T.MeshPhongMaterial({ color: 0x0c0d10, shininess: 40 })
   );
   w.rotation.z = Math.PI / 2; // cylinder axis across the car
+  w.castShadow = true;
   // Hubcap: a steel disc riding proud of both faces, with a dark
   // centre cap — the two-tone read is what makes a wheel read as a
   // wheel (not a black puck) at street distance. Children of the

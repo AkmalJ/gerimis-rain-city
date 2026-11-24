@@ -228,6 +228,16 @@ export function buildCity(scene) {
   buildStasiun(world);
   buildKampung(world);
   buildJalur(world);
+  // Shadow contract: solid Phong geometry casts and receives; flat
+  // Phong planes/discs (ground, roads, sidewalks, puddles) receive
+  // only. Basic-material overlays (signs, light pools, glows) stay
+  // out of the shadow pass entirely.
+  world.traverse(o => {
+    if (!o.isMesh || !o.material || o.material.type !== 'MeshPhongMaterial') return;
+    const flat = o.geometry && (o.geometry.type === 'PlaneGeometry' || o.geometry.type === 'CircleGeometry');
+    if (flat) o.receiveShadow = true;
+    else { o.castShadow = true; o.receiveShadow = true; }
+  });
   return world;
 }
 
