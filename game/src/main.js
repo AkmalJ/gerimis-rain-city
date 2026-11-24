@@ -6,7 +6,7 @@
 
 const T = window.THREE;
 import { WORLD, PAL, DISTRICTS, districtAt, WEAPONS, CREW, POLICE_UNITS, POLICE_TACTICS, DISPATCH_QUOTES, rankFor, clamp, lerp, rand, pick, dist2d } from './config.js';
-import { buildCity, resolveCollisions, updateCity } from './city.js';
+import { buildCity, resolveCollisions, updateCity, warungStall } from './city.js';
 import { Effects } from './effects.js';
 import { Ambience } from './ambience.js';
 import { makePed, animatePed, giveGun, gunMuzzleWorld, makeCarMesh, spinWheels, makeHeli } from './actors.js';
@@ -205,6 +205,70 @@ for (let i = 0; i < 17; i++) {
   mover.heading = Math.atan2(mover.dirx, mover.dirz);
   mover.speed = rand(7, 11);
   traffics.push(mover);
+}
+// Motorbike traffic (P3): three riders looping the grid like the cars
+// but quicker — the most Indonesian traffic there is. The bike is
+// primitives; the rider is a civ ped posed ONCE (seated, hands forward)
+// and never limb-animated.
+const bikes = [];
+function makeBike(riderOpts, x, z, dirx, dirz) {
+  const g = new T.Group();
+  const bodyM = new T.MeshStandardMaterial({ color: pick([0xb71c1c, 0x0d47a1, 0x1b5e20, 0x212121]), roughness: 0.4, metalness: 0.3 });
+  const darkM = new T.MeshStandardMaterial({ color: 0x14161c, roughness: 0.7 });
+  const tank = new T.Mesh(new T.BoxGeometry(0.3, 0.3, 1.05), bodyM); tank.position.set(0, 0.52, 0.05); tank.rotation.x = 0.12; g.add(tank);
+  const seat = new T.Mesh(new T.BoxGeometry(0.3, 0.09, 0.55), darkM); seat.position.set(0, 0.62, -0.38); g.add(seat);
+  const fork = new T.Mesh(new T.BoxGeometry(0.07, 0.75, 0.07), darkM); fork.position.set(0, 0.5, 0.62); fork.rotation.x = 0.42; g.add(fork);
+  const bar = new T.Mesh(new T.BoxGeometry(0.52, 0.05, 0.05), darkM); bar.position.set(0, 0.88, 0.48); g.add(bar);
+  const lampM = new T.MeshStandardMaterial({ color: 0xfff2b0, emissive: 0xffdf80, emissiveIntensity: 1.6 });
+  const lamp = new T.Mesh(new T.BoxGeometry(0.16, 0.12, 0.05), lampM); lamp.position.set(0, 0.78, 0.58); g.add(lamp);
+  const wheelG = new T.CylinderGeometry(0.31, 0.31, 0.07, 10);
+  for (const wz of [0.62, -0.58]) { const w = new T.Mesh(wheelG, darkM); w.rotation.z = Math.PI / 2; w.position.set(0, 0.31, wz); g.add(w); }
+  g.position.set(x, 0, z);
+  scene.add(g);
+  const rider = pedEntity('civ', riderOpts, x, z, 0);
+  const P = rider.mesh.userData.parts;
+  if (P) { P.legL.rotation.x = -1.15; P.legR.rotation.x = -1.15; P.armL.rotation.x = -0.72; P.armR.rotation.x = -0.72; }
+  g.add(rider.mesh);
+  rider.mesh.position.set(0, 0.42, -0.18);
+  const bike = { mesh: g, dirx, dirz, heading: Math.atan2(dirx, dirz), speed: rand(10, 13), aiT: rand(1, 3) };
+  g.rotation.y = bike.heading;
+  bikes.push(bike);
+  return bike;
+}
+makeBike({ hood: true }, -60, 0, 1, 0);
+makeBike({}, 95, -140, 0, 1);
+makeBike({ hood: true }, 150, 95, -1, 0);
+function updateBikes(dt) {
+  const mod95 = v => ((v % 95) + 95) % 95;
+  for (const b of bikes) {
+    const pos = b.mesh.position;
+    b.aiT -= dt;
+    const nearCrossing = (mod95(pos.x) < 3 || mod95(pos.x) > 92) && (mod95(pos.z) < 3 || mod95(pos.z) > 92);
+    if (b.aiT <= 0 && nearCrossing) {
+      b.aiT = rand(1.5, 4);
+      if (Math.random() < 0.45) {
+        const options = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([ox, oz]) => !(ox === -b.dirx && oz === -b.dirz));
+        const [nx, nz] = pick(options); b.dirx = nx; b.dirz = nz;
+      }
+    }
+    if (Math.abs(pos.x) > 366) b.dirx = pos.x > 0 ? -1 : 1;
+    if (Math.abs(pos.z) > 366) b.dirz = pos.z > 0 ? -1 : 1;
+    b.heading = angleLerp(b.heading, Math.atan2(b.dirx, b.dirz), dt * 3);
+    pos.x += Math.sin(b.heading) * b.speed * dt;
+    pos.z += Math.cos(b.heading) * b.speed * dt;
+    b.mesh.rotation.y = b.heading;
+  }
+}
+// Warung seating clusters (P3): two more stalls city-wide (Pasar Kabut,
+// Terminal Basah) with regulars standing at the counter — joins the two
+// plaza stalls from the station build as the city's four food corners.
+for (const [sx, sz, ry] of [[-108, -104, 0.8], [-166, 82, -0.6]]) {
+  warungStall(scene, sx, sz, ry);
+  for (let i = 0; i < 2; i++) {
+    const civ = pedEntity('civ', { hood: Math.random() < 0.5 }, sx + rand(-1.6, 1.6), sz + rand(1.2, 2.6), ry + Math.PI);
+    civ.homeX = sx; civ.homeZ = sz; civ.homeR = 2.6;
+    civs.push(civ);
+  }
 }
 // Terminal dressing: three buses and an angkot row under the shelter.
 for (let i = 0; i < 3; i++) { const bus = carEntity('bus', -222 + i * 20, 55, Math.PI / 2, 'parked'); bus.name = 'BUS GERIMIS TRANS'; parkeds.push(bus); }
@@ -1212,6 +1276,7 @@ function loop() {
   updatePlayer(dt);
   playerFire(dt);
   updateTraffic(dt);
+  updateBikes(dt);
   updatePeds(dt);
   updatePolice(dt);
   updateMissions(dt);

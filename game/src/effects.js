@@ -56,7 +56,7 @@ export class Effects {
     this.flashLight.position.set(0, 120, 0);
     scene.add(this.flashLight);
     this.flashEnv = 0;
-    this.nextBolt = rand(7, 15);
+    this.nextBolt = rand(25, 45);
     this.onThunder = null;             // main loop hooks the rumble here
   }
 
@@ -229,7 +229,7 @@ export class Effects {
   // ---- lightning -------------------------------------------------------
   forceLightning() {
     this.flashEnv = 1;
-    this.nextBolt = rand(8, 16);
+    this.nextBolt = rand(25, 45);
     // thunder trails the flash by a beat, like real distance
     if (this.onThunder) setTimeout(() => this.onThunder(), 350);
   }
@@ -239,7 +239,7 @@ export class Effects {
     if (this.nextBolt <= 0) this.forceLightning();
     this.flashEnv = Math.max(0, this.flashEnv - dt * 5.5);
     const flicker = this.flashEnv * (0.7 + 0.3 * Math.sin(performance.now() * 0.09));
-    this.flashLight.intensity = flicker * 2.6;
+    this.flashLight.intensity = flicker * 2.0;
     this.flashLight.position.set(this.anchor.x + 60, 130, this.anchor.z - 40);
   }
 
