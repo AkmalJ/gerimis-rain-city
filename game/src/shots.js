@@ -34,28 +34,46 @@ export function installStaging(api) {
 
   const cases = {
 
-    // COVER — the chase. Hero coupe northbound on Jalan Neon Raya, two
-    // cruisers offset on its tail so all three cars read, an angkot and a
-    // bajaj ahead for depth, wanted 4 so AIR ONE's spotlight joins live.
+    // COVER — the chase, restaged for identity (rev1). The old framing
+    // was a tower canyon that could have been any city: cruiser rear in
+    // front, hero hidden, signs out of frame. The restage makes the
+    // red GT the unobstructed centre subject with POLRESTA cruisers
+    // flanking (never blocking), the AIR ONE spotlight cone striking
+    // the street around it, an angkot crossing the junction at the
+    // frame edge, umbrella peds on the sidewalks, and the live
+    // dispatch panel — the Indonesian street read the old cover lacked.
     chase() {
       api.seedStats({ money: 21750, respect: 1890, jobsDone: 2, packages: [0, 1, 4, 6, 9], lifted: 7, raceBest: { turunan: 44.8 } });
       api.startJobAt(2); api.setStage(1); // PENUMPANG GELAP, the police-escape leg
-      // The convoy sits in the south stretch of Jalan Neon Raya: hero
-      // ahead, both staged cruisers on its tail (behind = +z, since the
-      // run heads north), traffic further up the road for depth.
-      heroCar.mesh.position.set(3.5, 0, -20);
-      heroCar.heading = Math.PI; heroCar.speed = 15;
+      // Slow crawl (stills don't show speed; control beats drift).
+      // NOTE on geometry: downtown tower placement is randomized per
+      // load (fillBlocks uses rand), so no sightline is guaranteed —
+      // the junction sign-wall framing only lands on lucky rolls and
+      // ate cameras on three of them. The framing below is the one
+      // that produced the installed cover: low behind the convoy in
+      // the tower canyon, GT centre, cone descending through frame.
+      heroCar.mesh.position.set(-1.5, 0, 15);
+      heroCar.heading = Math.PI; heroCar.speed = 3;
       api.setPlayerCar(heroCar);
-      const tail1 = api.spawnCruiserAt(-2.6, -8, Math.PI);
-      const tail2 = api.spawnCruiserAt(6.4, -5, Math.PI);
-      tail1.speed = 14; tail2.speed = 14;
-      const angkot = api.carEntity('angkot', -4.5, -68, Math.PI, 'traffic', 0xffc400); angkot.speed = 8; scene.add(angkot.mesh);
-      const bajaj = api.carEntity('bajaj', 5.5, -52, Math.PI, 'traffic', 0xff9100); bajaj.speed = 7; scene.add(bajaj.mesh);
+      const flankL = api.spawnCruiserAt(-7.5, 18.5, Math.PI);
+      const flankR = api.spawnCruiserAt(4.5, 18.5, Math.PI);
+      flankL.speed = 3; flankR.speed = 3;
+      const angkot = api.carEntity('angkot', -16, -1, Math.PI / 2, 'traffic', 0xffc400); angkot.speed = 2.5; scene.add(angkot.mesh);
+      const bajaj = api.carEntity('bajaj', 4.5, -22, Math.PI, 'traffic', 0xff9100); bajaj.speed = 3; scene.add(bajaj.mesh);
+      // Umbrella peds on both sidewalks, frame edges: rain-gear crowd
+      // as silhouettes with saturated umbrella discs.
+      const umbrellaPalette = [0xd81b60, 0x00897b, 0xf9a825, 0xc62828];
+      [[-10.4, 4, Math.PI / 2], [-10.4, -13, Math.PI / 2], [10.4, -5, -Math.PI / 2], [10.4, -19, -Math.PI / 2]].forEach(([px, pz, ph], i) => {
+        const walker = api.pedEntity('civ', { umbrella: umbrellaPalette[i % umbrellaPalette.length] }, px, pz, ph);
+        walker.mesh.userData.holdsUmbrella = true;
+      });
       api.setWanted(4);
       S.quote = '"Platnya baru diganti. Cari Rintik GT merah, itu dia."';
-      // Behind the cruisers, low: the tail cars flank the frame edges,
-      // the red coupe rides centre, signs and the AIR ONE cone above.
-      api.setCam([9.8, 2.6, -0.5], [1.0, 2.2, -38]);
+      // Low and close behind the flank cruisers: the red GT rides the
+      // centre, the AIR ONE cone shaft descends through the middle of
+      // the frame onto the street around it, light pools on the wet
+      // asphalt, the crossing angkot at the left edge.
+      api.setCam([1.5, 2.7, 27], [-3.5, 6.5, -42]);
     },
 
     // DUEL — a Pasar Kabut aisle gunfight. Hero west aiming east, three
