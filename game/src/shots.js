@@ -468,7 +468,7 @@ export function installStaging(api) {
         const gunman = api.pedEntity('gang', { gang: true, marker: true }, gx, gz, -Math.PI / 2);
         giveGun(gunman.mesh, pick(['smg', 'p9', 'smg']));
         gunman.hostile = true;
-        gunman.fireCd = 0.3 + i * 0.22; // staggered: return fire overlaps the hero's burst
+        gunman.fireCd = 0.3 + i * 0.09; // tight stagger: the return fire crowds into the hero's burst
         api.gangs.push(gunman);
         gunmen.push(gunman);
       });
@@ -567,7 +567,8 @@ export function installStaging(api) {
       // its vertical cone would. So: one staged heli from the game's
       // own makeHeli asset, high behind the market's north-east
       // corner, with its beam drawn as a separate cone aimed at the
-      // aisle among the far gunmen + a light pool where it lands.
+      // ground beside Damar (rev13: owner — the spotlight belongs on
+      // the hero, not on the far gunmen) + a light pool where it lands.
       const stagedHeli = makeHeli();
       stagedHeli.userData.stagedHeli = true;
       stagedHeli.position.set(264, 35, 30);
@@ -576,7 +577,7 @@ export function installStaging(api) {
       // below replaces it.
       stagedHeli.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'ConeGeometry') o.visible = false; });
       scene.add(stagedHeli);
-      const poolAt = new T.Vector3(233, 0, 51);
+      const poolAt = new T.Vector3(208.5, 0, 52.8);
       const bellyAt = new T.Vector3(264, 34.2, 30);
       const beamLen = bellyAt.distanceTo(poolAt);
       const beam = new T.Mesh(
