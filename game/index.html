@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="GERIMIS — open-world crime in a rain-locked Indonesian highland city: 8 story jobs, POLRESTA dispatch, street races, lost parcels, crew abilities and a save system. Built with Three.js.">
+<title>GERIMIS — Rain City Crime</title>
+<style>
+  /* GERIMIS sheet: one slate-night UI family. Panels are translucent
+     blue-black with a hairline sky border; gold means mission, red means
+     police, mint means money/safety. Everything is positioned fixed —
+     the canvas owns the whole window underneath. */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #0d1420; color: #eaf2ff; font-family: 'Segoe UI', Arial, sans-serif; height: 100%; overflow: hidden; user-select: none; width: 100%; }
+  #game { inset: 0; position: fixed; }
+  #game canvas { display: block; }
+  .panel { backdrop-filter: blur(3px); background: rgba(10, 16, 26, 0.78); border: 1px solid rgba(120, 180, 240, 0.35); border-radius: 10px; padding: 10px 12px; position: fixed; z-index: 5; }
+
+  /* mission panel — top-left, gold-ruled */
+  #missionPanel { border-left: 4px solid #ffd54f; left: 14px; top: 14px; width: 342px; }
+  #mKicker { color: #ffd54f; font-size: 11px; font-weight: 800; letter-spacing: 1.6px; }
+  #mStage { background: #ffd54f; border-radius: 4px; color: #131313; display: inline-block; font-size: 11px; font-weight: 900; letter-spacing: 1px; margin-top: 4px; padding: 2px 7px; }
+  #mTitle { display: inline-block; font-size: 21px; font-weight: 900; letter-spacing: 0.4px; margin-left: 7px; vertical-align: -3px; }
+  #mObj { color: #f2f7ff; font-size: 14.5px; line-height: 1.35; margin-top: 6px; }
+  #mNext { color: #9fd8c9; font-size: 12px; font-weight: 700; letter-spacing: 0.4px; margin-top: 4px; }
+  #mSegs { display: flex; gap: 4px; margin-top: 8px; }
+  #mSegs .seg { background: rgba(255,255,255,0.18); border-radius: 3px; flex: 1; height: 5px; }
+  #mSegs .seg.done { background: #00ffc8; }
+  #mSegs .seg.now { background: #ffd54f; }
+
+  /* dispatch panel — under the mission, red-ruled, hidden until wanted */
+  #dispatchPanel { border-left: 4px solid #ff3355; display: none; left: 14px; top: 196px; width: 342px; }
+  #dHead { color: #ff8fa5; font-size: 12px; font-weight: 900; letter-spacing: 1.2px; }
+  .dunit { display: flex; font-size: 12.5px; font-weight: 700; justify-content: space-between; margin-top: 5px; }
+  .dtac { background: #274b73; border-radius: 4px; color: #bfe0ff; font-size: 11px; padding: 0 6px; }
+  .dtac.hot { background: #b71c1c; color: #fff; }
+  .ddist { color: #9fb6cc; }
+  #dQuote { color: #ffd9a8; font-size: 12px; font-style: italic; margin-top: 7px; }
+
+  /* district card — bare text over the world, no panel chrome */
+  #districtCard { background: none; border: none; bottom: 232px; left: 14px; padding: 0; }
+  #dName { color: #ffe082; font-family: Georgia, serif; font-size: 27px; font-weight: 900; letter-spacing: 0.5px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+  #dSub { color: #cfe2f5; font-size: 13px; text-shadow: 0 1px 6px rgba(0,0,0,0.9); }
+  #dTurf { color: #00ffc8; font-size: 11px; font-weight: 900; letter-spacing: 2px; margin-top: 2px; }
+  #turfBar { background: rgba(255,255,255,0.22); border-radius: 3px; height: 5px; margin-top: 3px; width: 170px; }
+  #turfFill { background: #00ffc8; border-radius: 3px; height: 100%; width: 26%; }
+
+  /* minimap + vitals — bottom-left stack */
+  #minimap { bottom: 40px; left: 14px; position: fixed; z-index: 5; }
+  #vitals { align-items: center; bottom: 12px; display: flex; font-size: 11px; font-weight: 800; gap: 14px; left: 14px; letter-spacing: 1px; position: fixed; z-index: 5; }
+  .barWrap { background: rgba(255,255,255,0.2); border-radius: 4px; display: inline-block; height: 7px; margin: 0 5px; vertical-align: middle; width: 118px; }
+  .barFill { border-radius: 4px; height: 100%; }
+  #healthFill { background: #4ade80; } #armourFill { background: #60a5fa; }
+
+  /* top-right cluster: clock, money, stars, then rank and activity panels */
+  #topRight { position: fixed; right: 14px; text-align: right; top: 14px; z-index: 5; }
+  #clock { color: #bfe0ff; font-size: 15px; font-weight: 800; }
+  #money { color: #00ffc8; font-size: 31px; font-weight: 900; text-shadow: 0 0 14px rgba(0,255,200,0.45); }
+  #stars { color: #ffd54f; font-size: 21px; letter-spacing: 3px; }
+  #insight { color: #ff5252; font-size: 11px; font-weight: 900; letter-spacing: 2px; }
+  #rankPanel { right: 14px; top: 118px; width: 218px; }
+  #rankName { color: #ffd54f; font-size: 16px; font-weight: 900; }
+  #rankRp { color: #b9c9dc; font-size: 11.5px; }
+  #rankBar { background: rgba(255,255,255,0.18); border-radius: 3px; height: 6px; margin-top: 5px; }
+  #rankFill { background: #ffd54f; border-radius: 3px; height: 100%; width: 0%; }
+  #activityPanel { font-size: 12.5px; font-weight: 700; line-height: 1.7; right: 14px; top: 196px; width: 218px; }
+
+  /* weapon slots + crew cards — right edge, under the activity panel */
+  #weaponSlots { display: flex; gap: 6px; position: fixed; right: 14px; top: 268px; z-index: 5; }
+  .wslot { background: rgba(10,16,26,0.78); border: 1px solid rgba(120,180,240,0.3); border-radius: 8px; font-size: 10px; padding: 6px 7px; width: 74px; }
+  .wslot.active { border-color: #ffd54f; box-shadow: 0 0 10px rgba(255,213,79,0.4); }
+  .wslot.locked { opacity: 0.38; }
+  .wkey { color: #ffd54f; font-weight: 900; }
+  .wname { display: block; font-weight: 800; line-height: 1.25; margin-top: 2px; }
+  #crewCards { display: flex; flex-direction: column; gap: 6px; position: fixed; right: 14px; top: 342px; width: 232px; z-index: 5; }
+  .crewcard { align-items: center; background: rgba(10,16,26,0.78); border: 1px solid rgba(120,180,240,0.3); border-radius: 8px; display: flex; gap: 8px; padding: 7px 9px; }
+  .crewcard .ckey { background: #0e7490; border-radius: 5px; color: #eaf6ff; font-size: 13px; font-weight: 900; padding: 3px 7px; }
+  .crewcard .cinfo { flex: 1; }
+  .crewcard .cinfo b { display: block; font-size: 12px; }
+  .crewcard .cinfo i { color: #9fb6cc; font-size: 10.5px; font-style: normal; }
+  .crewcard .cstate { color: #7d8ea3; font-size: 11px; font-weight: 900; }
+  .crewcard.ready .cstate { color: #00ffc8; }
+
+  /* dialogue — bottom-centre strip with the speaker's initial badge */
+  #dlgBox { align-items: center; background: rgba(8, 12, 20, 0.88); border: 1px solid rgba(255, 213, 79, 0.45); border-radius: 12px; bottom: 26px; display: none; gap: 12px; left: 50%; padding: 12px 16px; position: fixed; transform: translateX(-50%); width: 560px; z-index: 6; }
+  #dlgAvatar { align-items: center; background: #c2185b; border-radius: 9px; color: #fff; display: flex; flex: none; font-size: 22px; font-weight: 900; height: 44px; justify-content: center; width: 44px; }
+  #dlgName { color: #ffd54f; font-size: 13px; font-weight: 900; letter-spacing: 0.6px; }
+  #dlgText { font-size: 15px; line-height: 1.4; }
+
+  /* speedometer cluster — bottom-right, driving only */
+  #speedo { bottom: 18px; display: none; position: fixed; right: 22px; text-align: right; z-index: 5; }
+  #radioLine { color: #7dd3fc; font-size: 12px; font-style: italic; }
+  #vehName { color: #ffd54f; font-size: 19px; font-weight: 900; letter-spacing: 1px; }
+  #condRow { color: #b9c9dc; font-size: 10.5px; font-weight: 800; letter-spacing: 1.4px; }
+  #condBar { background: rgba(255,255,255,0.2); border-radius: 3px; display: inline-block; height: 6px; margin-left: 6px; vertical-align: middle; width: 150px; }
+  #condFill { background: #4ade80; border-radius: 3px; height: 100%; }
+  #kmhRow { font-size: 54px; font-weight: 900; line-height: 1; }
+  #kmhRow small { color: #b9c9dc; font-size: 16px; }
+
+  /* transient layers: toast, banner, prompt, crosshair, hurt flash, vignette */
+  #toast { background: rgba(8,12,20,0.9); border: 1px solid #00ffc8; border-radius: 9px; color: #d9fff5; font-size: 15px; font-weight: 700; left: 50%; opacity: 0; padding: 9px 20px; position: fixed; top: 84px; transform: translateX(-50%); transition: opacity 0.3s; z-index: 8; }
+  #banner { left: 50%; opacity: 0; pointer-events: none; position: fixed; text-align: center; top: 30%; transform: translateX(-50%); transition: opacity 0.4s; z-index: 8; }
+  #bannerTitle { color: #ffd54f; font-family: Georgia, serif; font-size: 44px; font-weight: 900; letter-spacing: 2px; text-shadow: 0 0 24px rgba(255,160,40,0.65), 0 3px 8px rgba(0,0,0,0.8); }
+  #bannerSub { color: #eaf2ff; font-size: 17px; margin-top: 4px; text-shadow: 0 2px 6px rgba(0,0,0,0.9); }
+  #prompt { background: rgba(8,12,20,0.85); border: 1px solid rgba(255,213,79,0.6); border-radius: 8px; bottom: 120px; display: none; font-size: 14px; font-weight: 700; left: 50%; padding: 7px 16px; position: fixed; transform: translateX(-50%); z-index: 6; }
+  #crosshair { color: rgba(255,255,255,0.85); display: none; font-size: 20px; left: 50%; position: fixed; text-shadow: 0 0 6px #000; top: 50%; transform: translate(-50%, -50%); z-index: 4; }
+  #hurt { background: radial-gradient(ellipse at center, transparent 55%, rgba(200,0,30,0.5) 100%); inset: 0; opacity: 0; pointer-events: none; position: fixed; z-index: 7; }
+  #vig { background: radial-gradient(ellipse at center, transparent 62%, rgba(3,6,12,0.42) 100%); inset: 0; pointer-events: none; position: fixed; z-index: 3; }
+
+  /* town board overlay — the parchment poster centred over a dimmed world */
+  #boardOverlay { align-items: center; background: rgba(4, 8, 14, 0.82); display: none; inset: 0; justify-content: center; position: fixed; z-index: 20; }
+  #boardCanvas { border-radius: 6px; box-shadow: 0 18px 70px rgba(0,0,0,0.8); }
+
+  /* title screen — the GERIMIS wordmark in layered neon glow over the vista */
+  #titleScreen { align-items: center; background: linear-gradient(180deg, rgba(8,13,24,0.25) 0%, rgba(8,13,24,0.62) 78%, rgba(8,13,24,0.9) 100%); display: flex; flex-direction: column; inset: 0; justify-content: center; position: fixed; z-index: 30; }
+  #titleKicker { color: #7dd3fc; font-size: 15px; font-weight: 800; letter-spacing: 6px; text-shadow: 0 0 12px rgba(0,229,255,0.8); }
+  #titleBig { color: #f4fbff; font-family: Georgia, 'Times New Roman', serif; font-size: 148px; font-weight: 900; letter-spacing: 10px; line-height: 1.02;
+    text-shadow: 0 0 6px #bfe9ff, 0 0 22px #00e5ff, 0 0 55px #00b0ff, 0 0 110px #ff2e88, 0 6px 0 #0a2436, 0 12px 34px rgba(0,0,0,0.85); }
+  #titleSub { color: #ffe9b0; font-size: 19px; font-weight: 700; letter-spacing: 2.5px; margin-top: 2px; text-shadow: 0 2px 10px rgba(0,0,0,0.9); }
+  #titleMenu { display: flex; flex-direction: column; gap: 12px; margin-top: 44px; width: 320px; }
+  .tbtn { background: rgba(10, 18, 30, 0.88); border: 2px solid #00e5ff; border-radius: 10px; color: #eafcff; cursor: pointer; font-size: 19px; font-weight: 900; letter-spacing: 3px; padding: 13px 0; text-align: center; }
+  .tbtn:hover { background: #00e5ff; box-shadow: 0 0 26px rgba(0,229,255,0.65); color: #06222e; }
+  .tbtn.pink { border-color: #ff2e88; }
+  .tbtn.pink:hover { background: #ff2e88; box-shadow: 0 0 26px rgba(255,46,136,0.65); color: #2b0716; }
+  #continueInfo { color: #bfe0ff; font-size: 13.5px; min-height: 18px; text-align: center; }
+  #titleControls { color: #a9c2da; font-size: 13px; line-height: 1.75; margin-top: 30px; text-align: center; text-shadow: 0 1px 5px #000; }
+  #titleControls b { color: #ffd54f; }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="vig"></div>
+
+<div id="missionPanel" class="panel" style="display:none">
+  <div id="mKicker">JOB 1/8</div>
+  <span id="mStage">TAHAP 1/2</span><span id="mTitle">ANGKOT TERAKHIR</span>
+  <div id="mObj"></div>
+  <div id="mNext"></div>
+  <div id="mSegs"></div>
+</div>
+
+<div id="dispatchPanel" class="panel">
+  <div id="dHead">POLRESTA GERIMIS</div>
+  <div id="dUnits"></div>
+  <div id="dQuote"></div>
+</div>
+
+<div id="districtCard" class="panel">
+  <div id="dName">PUSAT GERIMIS</div>
+  <div id="dSub">Jalan Neon Raya</div>
+  <div id="dTurf">NETRAL</div>
+  <div id="turfBar"><div id="turfFill"></div></div>
+</div>
+
+<canvas id="minimap" width="190" height="190"></canvas>
+<div id="vitals">
+  <span>DARAH <span class="barWrap"><span class="barFill" id="healthFill" style="display:block;width:100%"></span></span><span id="healthNum">100</span></span>
+  <span>ROMPI <span class="barWrap"><span class="barFill" id="armourFill" style="display:block;width:60%"></span></span><span id="armourNum">60</span></span>
+</div>
+
+<div id="topRight">
+  <div id="clock">19:05</div>
+  <div id="money">Rp0</div>
+  <div id="stars">☆☆☆☆☆</div>
+  <div id="insight" style="display:none">TERLIHAT POLISI</div>
+</div>
+
+<div id="rankPanel" class="panel">
+  <div id="rankName">ANAK TERMINAL</div>
+  <div id="rankRp">0 / 600 RP</div>
+  <div id="rankBar"><div id="rankFill"></div></div>
+</div>
+
+<div id="activityPanel" class="panel">
+  <div id="actRaces">BALAPAN JALANAN — 0/3 MENANG</div>
+  <div id="actPkgs">PAKET HILANG 0/12</div>
+</div>
+
+<div id="weaponSlots"></div>
+<div id="crewCards"></div>
+
+<div id="dlgBox">
+  <div id="dlgAvatar">D</div>
+  <div><div id="dlgName">DAMAR</div><div id="dlgText"></div></div>
+</div>
+
+<div id="speedo">
+  <div id="radioLine">♪ Gerimis FM 101.2 — Lagu Hujan Nonstop</div>
+  <div id="vehName">RINTIK GT</div>
+  <div id="condRow">KONDISI <span id="condBar"><span id="condFill" style="display:block;width:100%"></span></span></div>
+  <div id="kmhRow"><span id="kmh">0</span> <small>KM/J</small></div>
+</div>
+
+<div id="toast"></div>
+<div id="banner"><div id="bannerTitle"></div><div id="bannerSub"></div></div>
+<div id="prompt"></div>
+<div id="crosshair">＋</div>
+<div id="hurt"></div>
+
+<div id="boardOverlay">
+  <canvas id="boardCanvas" width="1160" height="760"></canvas>
+</div>
+
+<div id="titleScreen">
+  <div id="titleKicker">KOTA HUJAN TIDAK PERNAH KERING</div>
+  <div id="titleBig">GERIMIS</div>
+  <div id="titleSub">KEJAHATAN • KEJAR-KEJARAN • HUJAN TANPA HENTI</div>
+  <div id="titleMenu">
+    <div class="tbtn" id="btnNew">MULAI BARU</div>
+    <div class="tbtn pink" id="btnContinue">LANJUTKAN</div>
+    <div id="continueInfo"></div>
+  </div>
+  <div id="titleControls">
+    <b>WASD</b> jalan / setir • <b>Mouse</b> kamera &amp; bidik • <b>Klik</b> tembak • <b>F</b> masuk mobil • <b>Shift</b> lari / gas<br>
+    <b>1–4</b> senjata • <b>Z/X/C</b> kemampuan kru • <b>TAB</b> peta kota • <b>Spasi</b> rem tangan
+  </div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
