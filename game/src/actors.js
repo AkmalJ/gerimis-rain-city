@@ -57,11 +57,18 @@ export function makePed(opts = {}) {
   const pants = opts.pants ?? pick(PANTS_TONES);
 
   // Legs pivot at the hip (y 0.78) so the walk cycle can swing them.
+  // Each leg is three pieces — thigh, shin, shoe — so the silhouette
+  // articulates instead of reading as one trouser block.
   const legL = new T.Group(); legL.position.set(-0.11, 0.78, 0);
   const legR = new T.Group(); legR.position.set(0.11, 0.78, 0);
-  const shinL = brick(0.17, 0.78, 0.2, pants); shinL.position.y = -0.39; legL.add(shinL);
-  const shinR = brick(0.17, 0.78, 0.2, pants); shinR.position.y = -0.39; legR.add(shinR);
+  for (const [leg, pantsTone] of [[legL, pants], [legR, pants]]) {
+    const thigh = brick(0.18, 0.4, 0.21, pantsTone); thigh.position.y = -0.2; leg.add(thigh);
+    const shin = brick(0.15, 0.34, 0.18, pantsTone); shin.position.y = -0.57; leg.add(shin);
+    const shoe = brick(0.17, 0.1, 0.3, 0x14161a, { shine: 35 }); shoe.position.set(0, -0.74, 0.045); leg.add(shoe);
+  }
   g.add(legL, legR);
+  // Pelvis bridges the legs into the torso.
+  const pelvis = brick(0.5, 0.18, 0.27, pants); pelvis.position.y = 0.86; g.add(pelvis);
 
   const torso = brick(0.52, 0.66, 0.28, shirt, { shine: 26 });
   torso.position.y = 1.11;
@@ -94,23 +101,51 @@ export function makePed(opts = {}) {
   g.add(headG);
 
   // Arms pivot at the shoulder (y 1.38); hands hang at the end.
+  // Upper arm in shirt cloth, forearm bare skin, then the hand — the
+  // elbow break is what stops the arm reading as a hanging plank.
   const armL = new T.Group(); armL.position.set(-0.33, 1.38, 0);
   const armR = new T.Group(); armR.position.set(0.33, 1.38, 0);
-  const sleeveL = brick(0.15, 0.62, 0.17, shirt); sleeveL.position.y = -0.31; armL.add(sleeveL);
-  const sleeveR = brick(0.15, 0.62, 0.17, shirt); sleeveR.position.y = -0.31; armR.add(sleeveR);
-  const handL = brick(0.13, 0.13, 0.13, skin); handL.position.y = -0.66; armL.add(handL);
-  const handR = brick(0.13, 0.13, 0.13, skin); handR.position.y = -0.66; armR.add(handR);
+  for (const [arm, side] of [[armL, -1], [armR, 1]]) {
+    const upper = brick(0.15, 0.36, 0.17, shirt); upper.position.y = -0.18; arm.add(upper);
+    const fore = brick(0.13, 0.28, 0.15, skin); fore.position.y = -0.48; arm.add(fore);
+    const hand = brick(0.13, 0.13, 0.13, skin); hand.position.y = -0.66; arm.add(hand);
+    // Shoulder cap ties the arm into the torso.
+    const cap = brick(0.17, 0.13, 0.2, shirt); cap.position.set(side * 0.31, 1.42, 0); g.add(cap);
+  }
   g.add(armL, armR);
 
   if (opts.umbrella) {
-    // Canopy + stick parented to the right hand; arm pre-raised.
+    // A real umbrella, not a party hat: a squashed sphere dome with
+    // a darker underside, a tip spike above, and a shaft that runs
+    // past the hand into a hooked handle. Parented to the right
+    // hand; arm pre-raised.
     const um = new T.Group();
-    const canopy = new T.Mesh(
-      new T.ConeGeometry(0.78, 0.3, 8),
-      new T.MeshPhongMaterial({ color: opts.umbrella, shininess: 60 })
+    const canopyMat = new T.MeshPhongMaterial({ color: opts.umbrella, shininess: 60, specular: 0x8899bb });
+    const dome = new T.Mesh(new T.SphereGeometry(0.82, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), canopyMat);
+    dome.scale.set(1, 0.48, 1);
+    dome.position.y = 0.4;
+    um.add(dome);
+    const under = new T.Mesh(
+      new T.CircleGeometry(0.79, 14),
+      new T.MeshPhongMaterial({ color: opts.umbrella, shininess: 20, side: T.DoubleSide })
     );
-    canopy.position.y = 0.62; um.add(canopy);
-    const stick = brick(0.035, 0.7, 0.035, 0x222222); stick.position.y = 0.26; um.add(stick);
+    under.material.color.multiplyScalar(0.45);
+    under.rotation.x = Math.PI / 2;
+    under.position.y = 0.5;
+    um.add(under);
+    const spike = new T.Mesh(
+      new T.ConeGeometry(0.03, 0.17, 6),
+      new T.MeshPhongMaterial({ color: 0x222222, shininess: 50 })
+    );
+    spike.position.y = 0.85; um.add(spike);
+    const stick = brick(0.035, 0.71, 0.035, 0x222222); stick.position.y = 0.19; um.add(stick);
+    const hook = new T.Mesh(
+      new T.TorusGeometry(0.07, 0.016, 6, 12, Math.PI),
+      new T.MeshPhongMaterial({ color: 0x222222, shininess: 50 })
+    );
+    hook.position.y = -0.17;
+    hook.rotation.z = Math.PI; // open side up: a J hanging below the grip
+    um.add(hook);
     um.position.set(0.1, -0.6, 0.08);
     armR.add(um);
     armR.rotation.x = -0.5;
