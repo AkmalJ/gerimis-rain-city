@@ -126,7 +126,10 @@ function glowSprite(parent, x, y, z, size, color, opacity = 0.75) {
 function neonSign(parent, text, sub, fgCss, bgCss, w, x, y, z, ry = 0) {
   const mesh = new T.Mesh(
     new T.PlaneGeometry(w, w / 4),
-    new T.MeshBasicMaterial({ map: makeSignTexture(text, fgCss, bgCss, sub), side: T.DoubleSide })
+    // FrontSide on purpose (item-15): DoubleSide made every board
+    // read MIRRORED from behind (the owner's "TUBAN PION" shot) —
+    // a real sign's back is blank, not backwards text.
+    new T.MeshBasicMaterial({ map: makeSignTexture(text, fgCss, bgCss, sub) })
   );
   mesh.position.set(x, y, z);
   mesh.rotation.y = ry;
@@ -231,9 +234,13 @@ export function buildCity(scene) {
   buildJalur(world);
   // Ruko rows (P5): station street west + east (fronting the spawn
   // street) and the downtown z=0 road's north side.
-  rukoRow(world, -88, 163, 1, 8);
-  rukoRow(world, 40, 163, 1, 8);
-  rukoRow(world, -70, -14, 1, 8);
+  // Item-15: rows nudged onto their block lines and pulled up to a
+  // 3 m setback from the sidewalk (z 171) — row 1's first unit
+  // crossed the x=-95 block line, row 2's last units stood in the
+  // x=95 road, row 3 clipped the z=0 sidewalk zone.
+  rukoRow(world, -82, 171, 1, 8);
+  rukoRow(world, 24, 171, 1, 8);
+  rukoRow(world, -70, -17, 1, 8);
   streetProps(world);
   // Shadow contract: solid Phong geometry casts and receives; flat
   // Phong planes/discs (ground, roads, sidewalks, puddles) receive
@@ -350,12 +357,21 @@ function tower(world, x, z, w, h, d, texBase) {
     tcap.position.set(x, h + th - 0.25, z); world.add(tcap);
   }
   if (rand(0, 1) < 0.35) {
-    const side = rand(0, 1) < 0.5 ? 1 : -1;
     const aw = w * 0.45, ad = d * 0.6, ah = rand(6, 10);
-    const ax = x + side * (w / 2 + aw / 2);
-    const annex = new T.Mesh(new T.BoxGeometry(aw, ah, ad), mat);
-    annex.position.set(ax, ah / 2, z); world.add(annex);
-    addCollider(ax, z, aw / 2, ad / 2);
+    // The annex may only grow into its own block (item-15): try the
+    // rolled side, flip if it would cross the block line (road +
+    // sidewalk = 11.9 m from the grid line), skip if neither fits.
+    const cellLo = Math.floor(x / WORLD.pitch) * WORLD.pitch + 11.9;
+    const cellHi = cellLo + WORLD.pitch - 23.8;
+    let side = rand(0, 1) < 0.5 ? 1 : -1;
+    const fits = s => s > 0 ? x + w / 2 + aw <= cellHi : x - w / 2 - aw >= cellLo;
+    if (!fits(side)) side = -side;
+    if (fits(side)) {
+      const ax = x + side * (w / 2 + aw / 2);
+      const annex = new T.Mesh(new T.BoxGeometry(aw, ah, ad), mat);
+      annex.position.set(ax, ah / 2, z); world.add(annex);
+      addCollider(ax, z, aw / 2, ad / 2);
+    }
   }
   // Round-2 silhouette work: some towers wear a second, lower cornice
   // lip, and mid-rise towers grow balcony rows on one flank — slab +
@@ -449,9 +465,20 @@ function tower(world, x, z, w, h, d, texBase) {
 
 function fillBlocks(world) {
   const facades = ['#232d3d', '#1f2735', '#28303f', '#202833'];
-  for (let bx = -3; bx <= 3; bx++) {
-    for (let bz = -3; bz <= 3; bz++) {
-      const cx = bx * WORLD.pitch, cz = bz * WORLD.pitch;
+  // COMPOSITION (item-15, owner: "bangunannya ga rapih — ada yang di
+  // tengah jalan, keluar garis, bentuknya kaya pajangan"): the old
+  // scatter centred its lots on the road JUNCTIONS with ±24 m jitter,
+  // so slabs routinely landed in the asphalt. Now towers stand inside
+  // the block interiors — the cells BETWEEN road lines — four corner
+  // lots per block, every street face landing on one shared setback
+  // line (32.5 m from block centre = 3.1 m behind the sidewalk edge),
+  // one height band per block so each street gets a rhythm instead of
+  // random lone slabs, corners carrying the tallest mass.
+  const EDGE = WORLD.pitch / 2 - 11.9;   // 35.6 buildable half-extent
+  const FACE = EDGE - 3.1;               // 32.5 shared facade setback
+  for (let bx = -3; bx <= 2; bx++) {
+    for (let bz = -3; bz <= 2; bz++) {
+      const cx = (bx + 0.5) * WORLD.pitch, cz = (bz + 0.5) * WORLD.pitch;
       // Blocks reserved for district set-pieces stay empty here.
       const reserved =
         (Math.abs(cx + 190) < 60 && Math.abs(cz - 48) < 60) ||   // terminal
@@ -460,12 +487,13 @@ function fillBlocks(world) {
         (Math.abs(cx + 190) < 60 && Math.abs(cz + 190) < 60) ||  // kampung
         (Math.abs(cx - 190) < 60 && Math.abs(cz + 190) < 60);    // jalur
       if (reserved) continue;
-      const downtown = Math.abs(bx) <= 1 && Math.abs(bz) <= 1;
-      const count = downtown ? 2 : 3;
-      for (let i = 0; i < count; i++) {
-        const w = rand(16, 26), d = rand(16, 26);
-        const h = downtown ? rand(26, 52) : rand(9, 22);
-        tower(world, cx + rand(-24, 24), cz + rand(-24, 24), w, h, d, pick(facades));
+      const downtown = Math.abs(cx) < 100 && Math.abs(cz) < 100;
+      const band = downtown ? rand(30, 46) : rand(11, 19);
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        if (rand(0, 1) < 0.12) continue; // an occasional open corner lot
+        const w = rand(17, 24), d = rand(17, 24);
+        const h = Math.min(52, band * rand(0.82, 1.18) * (downtown ? 1 : rand(0.9, 1.3)));
+        tower(world, cx + sx * (FACE - w / 2), cz + sz * (FACE - d / 2), w, h, d, pick(facades));
       }
     }
   }
@@ -500,7 +528,7 @@ function streetProps(world) {
   crateStack(168, 18, 4);   // pasar south-west corner
   crateStack(236, 66, 3);   // pasar east lane
   crateStack(-166, 80, 4);  // terminal apron
-  crateStack(-4, 224, 3);   // station forecourt west
+  crateStack(16, 219, 3);   // station forecourt west (was on the x=0 carriageway)
 
   const binMat = new T.MeshPhongMaterial({ color: 0x2e4a3a, shininess: 35 });
   function bin(x, z) {
@@ -511,7 +539,7 @@ function streetProps(world) {
     rim.rotation.x = Math.PI / 2; rim.position.set(x, 0.79, z); world.add(rim);
     addCollider(x, z, 0.34, 0.34);
   }
-  bin(20, 197); bin(70, 197); bin(176, 20); bin(-176, 32); bin(-14, -44); bin(52, 44);
+  bin(20, 200.2); bin(70, 200.2); bin(176, 20); bin(-176, 32); bin(-14, -44); bin(52, 44); // first two moved off the asphalt edge onto the z=190 sidewalk
 
   // Parked motorbikes: two wheels, a low spine, seat and bars — five
   // parts each, in angled rows where riders actually leave them.
@@ -547,16 +575,20 @@ function streetProps(world) {
 
 // ------------------------------------------------------------ districts
 function buildTerminal(world) {
-  const cx = -200, cz = 55;
+  // Item-15: centred on -206 with a 52 m roof — the old 64 m roof at
+  // -200 straddled the x=-190 road outright. East edge now -180,
+  // clear of the block line (-178.1); quest spots east of the
+  // terminal keep their relationship to it.
+  const cx = -206, cz = 55;
   // A wide shelter roof on slim poles, cyan trim glowing underneath.
   const roof = new T.Mesh(
-    new T.BoxGeometry(64, 1, 26),
+    new T.BoxGeometry(52, 1, 26),
     new T.MeshPhongMaterial({ color: 0x27313f, shininess: 50, specular: 0x8899bb })
   );
   roof.position.set(cx, 6.4, cz); world.add(roof);
-  const trim = new T.Mesh(new T.BoxGeometry(64.6, 0.5, 26.6), new T.MeshBasicMaterial({ color: PAL.neonCyan }));
+  const trim = new T.Mesh(new T.BoxGeometry(52.6, 0.5, 26.6), new T.MeshBasicMaterial({ color: PAL.neonCyan }));
   trim.position.set(cx, 5.85, cz); world.add(trim);
-  for (const px of [-28, -14, 0, 14, 28]) {
+  for (const px of [-24, -12, 0, 12, 24]) {
     for (const pz of [-10, 10]) {
       const pole = new T.Mesh(
         new T.CylinderGeometry(0.22, 0.22, 6.4, 6),
@@ -565,27 +597,34 @@ function buildTerminal(world) {
       pole.position.set(cx + px, 3.2, cz + pz); world.add(pole);
     }
   }
-  neonSign(world, 'TERMINAL BASAH', 'ANTAR KOTA • ANGKOT • BUS MALAM', '#00e5ff', '#03141a', 22, cx, 8.6, cz - 13.4);
+  // Sign flipped (item-15): it hung on the south face but faced
+  // north into the roof — the street read it mirrored.
+  neonSign(world, 'TERMINAL BASAH', 'ANTAR KOTA • ANGKOT • BUS MALAM', '#00e5ff', '#03141a', 22, cx, 8.6, cz - 13.4, Math.PI);
   for (let i = 0; i < 7; i++) lightPool(world, cx - 27 + i * 9, cz, 7, 0x66d9ff, 0.28);
   for (let i = 0; i < 6; i++) {
     const bench = new T.Mesh(new T.BoxGeometry(3.4, 0.5, 0.8), new T.MeshPhongMaterial({ color: 0x4a5a6a }));
     bench.position.set(cx - 25 + i * 10, 0.4, cz + 8); world.add(bench);
     addCollider(cx - 25 + i * 10, cz + 8, 1.7, 0.45);
   }
-  addCollider(cx, cz - 12, 32, 1.2);
-  addCollider(cx, cz + 12, 32, 1.2);
+  addCollider(cx, cz - 12, 26, 1.2);
+  addCollider(cx, cz + 12, 26, 1.2);
 }
 
 function buildPasar(world) {
   const cx = 200, cz = 45;
-  neonSign(world, 'PASAR KABUT', 'SAYUR • IKAN • REMPAH — BUKA 24 JAM', '#ff2e88', '#170510', 21, cx - 20, 7.6, cz - 26);
+  // Sign moved over the new west gate and flipped (item-15): it
+  // faced INTO the market, so the street read it mirrored.
+  neonSign(world, 'PASAR KABUT', 'SAYUR • IKAN • REMPAH — BUKA 24 JAM', '#ff2e88', '#170510', 21, cx + 17, 7.6, cz - 26, Math.PI);
   const awningPalette = [0xd81b60, 0x00897b, 0xf9a825, 0x5e35b1, 0xc62828, 0x2e7d32];
   const goodsPalette = [0x66bb6a, 0xff7043, 0xffee58, 0xab47bc, 0x26c6da];
   // Three aisles of five stalls: counter, tilted awning, posts, goods,
   // a warm bulb glow and a light pool on the wet floor per stall.
   for (let row = 0; row < 3; row++) {
     for (let i = 0; i < 5; i++) {
-      const x = cx - 30 + i * 15, z = cz - 18 + row * 17;
+      // Item-15: columns shifted +37 east — at cx-30 the x=185 and
+      // x=200 columns stood in the x=190 road. The market now fills
+      // its block (x 204..270); the old west ground stays as apron.
+      const x = cx + 7 + i * 15, z = cz - 18 + row * 17;
       const counter = new T.Mesh(new T.BoxGeometry(5.6, 1.1, 2.6), new T.MeshPhongMaterial({ color: 0x5d4037 }));
       counter.position.set(x, 0.55, z); world.add(counter);
       const awning = new T.Mesh(
@@ -686,10 +725,15 @@ function buildStasiun(world) {
   // Flanking towers fill the reserved block's empty flanks: the station
   // no longer sits alone on a slab, and the spawn forecourt reads as a
   // city square the moment the player steps in.
-  tower(world, -18, 205, 20, 24, 18, '#232d3d');
-  tower(world, 110, 206, 22, 31, 20, '#28303f');
-  streetLamp(world, 0, 212);
-  streetLamp(world, 90, 212);
+  // Item-15: the flanks used to stand at (-18,205) and (110,206) —
+  // the first nibbled the x=0 road's sidewalk, the second reached
+  // 4.5 m onto the x=95 asphalt. Both now sit on legal corner lots
+  // across their side streets, still framing the forecourt; the two
+  // forecourt lamps moved from the x=0 carriageway onto its sidewalk.
+  tower(world, -23, 211, 20, 24, 18, '#232d3d');
+  tower(world, 119, 212, 22, 31, 20, '#28303f');
+  streetLamp(world, -10.2, 214);
+  streetLamp(world, 105.2, 214);
   streetLamp(world, 26, 221);
   streetLamp(world, 64, 221);
   const facadeMat = new T.MeshPhongMaterial({ color: 0x2c3644, shininess: 30 });
@@ -792,9 +836,12 @@ function buildStasiun(world) {
   tank.position.set(cx - 22, 15.85, cz + 6); world.add(tank);
   const acBox = new T.Mesh(new T.BoxGeometry(3.2, 1.1, 2.2), new T.MeshPhongMaterial({ color: 0x39424e, shininess: 30 }));
   acBox.position.set(cx + 18, 15.1, cz + 2); world.add(acBox);
-  // Side wings: lower masses stepping down at both ends of the hall.
-  tower(world, 1, 235, 13, 9.5, 15, '#28303f');
-  tower(world, 89, 235, 13, 11, 15, '#232d3d');
+  // Side wings REMOVED (item-15): they stood at x=1 and x=89 —
+  // squarely in the x=0 and x=95 road strips, the owner's exact
+  // "bangunan di tengah jalan" complaint. The hall nearly fills its
+  // block, so the flanking towers across the side streets (above)
+  // carry the framing now; the hall keeps its roof mass, parapet,
+  // portal and platform canopy for depth.
   // Entrance portal: two columns + lintel + a lit canopy slab in front
   // of the centre doors, with a warm pool on the apron.
   for (const px of [cx - 7, cx + 7]) {
@@ -811,15 +858,17 @@ function buildStasiun(world) {
   lightPool(world, cx, cz - 11, 11, 0xffb347, 0.42);
   // Platform, twin rails, and the night train — now ON its track,
   // centred on the platform edge, and MOVING (see updateCity).
+  // Item-15: platform + canopy trimmed to the block interior
+  // (x 13..82) — their ends used to reach across both side roads.
   const platform = new T.Mesh(
-    new T.BoxGeometry(90, 0.8, 7),
+    new T.BoxGeometry(69, 0.8, 7),
     new T.MeshPhongMaterial({ color: 0x39424e, shininess: 50, specular: 0x77879f })
   );
-  platform.position.set(cx, 0.4, cz + 12); world.add(platform);
+  platform.position.set(cx + 2.5, 0.4, cz + 12); world.add(platform);
   // Platform canopy on columns behind the hall.
-  const pCanopy = new T.Mesh(new T.BoxGeometry(84, 0.45, 8.6), new T.MeshPhongMaterial({ color: 0x27313f, shininess: 50, specular: 0x8899bb }));
-  pCanopy.position.set(cx, 6.7, cz + 12.5); world.add(pCanopy);
-  for (const px of [9, 27, 45, 63, 81]) {
+  const pCanopy = new T.Mesh(new T.BoxGeometry(69, 0.45, 8.6), new T.MeshPhongMaterial({ color: 0x27313f, shininess: 50, specular: 0x8899bb }));
+  pCanopy.position.set(cx + 2.5, 6.7, cz + 12.5); world.add(pCanopy);
+  for (const px of [16, 32, 48, 64, 79]) {
     for (const pz of [cz + 9.2, cz + 15.8]) {
       const col = new T.Mesh(new T.CylinderGeometry(0.16, 0.16, 6.7, 6), new T.MeshPhongMaterial({ color: 0x39424e }));
       col.position.set(px, 3.35, pz); world.add(col);

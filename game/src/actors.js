@@ -295,15 +295,19 @@ function tyre(r = 0.34) {
 
 // Two lamp bricks + two additive light cones thrown ahead of the car —
 // in the rain these cones do most of the "wet night" storytelling.
+// Normalised (item-15): the old 7.5 m × 1.05 m cones at 0.16 opacity
+// blew out into giant solid white wedges from behind/side angles
+// (owner playtest screenshot) — shorter, narrower, fainter now, so
+// they read as light beams, not geometry.
 function headlights(group, x, y, z, spread = 0.62) {
   const coneMat = new T.MeshBasicMaterial({
-    color: 0xffeebb, transparent: true, opacity: 0.16,
+    color: 0xffeebb, transparent: true, opacity: 0.1,
     blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide,
   });
   for (const side of [-1, 1]) {
-    const cone = new T.Mesh(new T.ConeGeometry(1.05, 7.5, 10, 1, true), coneMat);
+    const cone = new T.Mesh(new T.ConeGeometry(0.7, 5.0, 10, 1, true), coneMat);
     cone.rotation.x = Math.PI / 2 + 0.06;
-    cone.position.set(x + side * spread, y, z + 3.6);
+    cone.position.set(x + side * spread, y, z + 2.4);
     group.add(cone);
     const lamp = brick(0.26, 0.13, 0.06, 0xfff6c9, { emissive: 0xffedb5, ei: 2.2 });
     lamp.position.set(x + side * spread, y, z + 0.02);
