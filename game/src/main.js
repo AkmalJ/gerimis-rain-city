@@ -645,6 +645,14 @@ function playerDown() {
   player.mesh.position.set(24, 0, 196);
   saveGame();
 }
+function playerBusted() {
+  hud.showBanner('DITANGKAP POLRESTA', 'Dibawa ke Stasiun Kota — uang berkurang Rp1.500, buronan bersih');
+  S.money = Math.max(0, S.money - 1500);
+  S.health = 100; S.armour = 30; S.wanted = 0; S.bustT = 0;
+  player.mesh.position.set(24, 0, 196);
+  saveGame();
+}
+const officers = [];
 
 // ---------------- missions engine ----------------
 // A job is a list of stages; each stage knows how to spawn itself and
@@ -769,6 +777,17 @@ function updatePolice(dt) {
   const desiredCount = S.wanted === 0 ? 0 : Math.min(5, S.wanted + 1);
   while (cruisers.length < desiredCount) spawnCruiser();
   const anchor = S.driving && playerCar ? playerCar.mesh.position : player.mesh.position;
+  // Pursuit v2 (P7): the old steering aimed every cruiser at the
+  // player's exact point at one constant speed with a 1.6/s turn —
+  // a ~9.6 m minimum turning radius at 4 stars, so they overshot and
+  // ORBITED him. Now: the nearest unit drives to an intercept point
+  // ahead of the player (a block), the rest ram the point itself,
+  // turn rate triples at close range, and speed is gap-driven — on
+  // foot they pull up and stop instead of blasting past.
+  let nearest = null, nearestGap = 1e9;
+  for (const c of cruisers) { const g = dist2d(c.mesh.position.x, c.mesh.position.z, anchor.x, anchor.z); if (g < nearestGap) { nearestGap = g; nearest = c; } }
+  const pvx = S.driving && playerCar ? Math.sin(playerCar.heading) * playerCar.speed : 0;
+  const pvz = S.driving && playerCar ? Math.cos(playerCar.heading) * playerCar.speed : 0;
   for (let i = cruisers.length - 1; i >= 0; i--) {
     const cruiser = cruisers[i];
     const gap = dist2d(cruiser.mesh.position.x, cruiser.mesh.position.z, anchor.x, anchor.z);
@@ -776,13 +795,21 @@ function updatePolice(dt) {
     if ((S.wanted === 0 && gap > 40) || gap > 190) { scene.remove(cruiser.mesh); cruisers.splice(i, 1); continue; }
     if (cruiser.alive === false) { cruiser.speed = 0; continue; }
     if (cruiser.loseT > 0) cruiser.loseT -= dt;
-    // Pursuit steering: chase the player's position, gentler while the
-    // GANTI PLAT confusion (loseT) lasts.
-    const chaseHeading = headingTo(cruiser.mesh.position.x, cruiser.mesh.position.z, anchor.x, anchor.z);
-    cruiser.heading = angleLerp(cruiser.heading, chaseHeading, dt * (cruiser.loseT > 0 ? 0.4 : 1.6));
-    const cruiseSpeed = S.wanted === 0 ? 0 : clamp(9 + S.wanted * 1.6, 0, 17);
-    cruiser.speed = lerp(cruiser.speed, cruiser.loseT > 0 ? 4 : cruiseSpeed, dt * 0.8);
+    let tx = anchor.x, tz = anchor.z;
+    if (cruiser === nearest && S.driving) { tx += pvx * 0.55; tz += pvz * 0.55; }
+    const chaseHeading = headingTo(cruiser.mesh.position.x, cruiser.mesh.position.z, tx, tz);
+    const turnRate = cruiser.loseT > 0 ? 0.4 : (gap < 12 ? 3.4 : 2.2);
+    cruiser.heading = angleLerp(cruiser.heading, chaseHeading, dt * turnRate);
+    let targetSpeed = S.wanted === 0 ? 0 : clamp(9 + S.wanted * 1.6, 0, 17);
+    if (S.driving && gap > 30) targetSpeed = 19.5;
+    if (!S.driving && S.wanted > 0) targetSpeed = gap < 2.6 ? 0 : (gap < 14 ? clamp(gap * 0.55, 2.0, targetSpeed) : targetSpeed);
+    cruiser.speed = lerp(cruiser.speed, cruiser.loseT > 0 ? 4 : targetSpeed, dt * 0.8);
     moveCar(cruiser, dt, true);
+    // A stopped cruiser at 3+ stars puts an officer on the street.
+    if (S.wanted >= 3 && !S.driving && gap < 9 && Math.abs(cruiser.speed) < 1.4 && !cruiser.officer) {
+      const off = pedEntity('civ', {}, cruiser.mesh.position.x + 1.6, cruiser.mesh.position.z, 0);
+      cruiser.officer = off; officers.push(off);
+    }
     // Contact is a ram: both cars pay, the player pays in blood on foot.
     if (gap < 3.4) {
       if (S.driving && playerCar) {
@@ -797,6 +824,29 @@ function updatePolice(dt) {
       cruiser.mesh.userData.lightBar.children[1].material.emissiveIntensity = phase ? 0.3 : 3.2;
     }
   }
+  // Officers on foot: close to 2.3 m and hold for the bust (2.2 s).
+  // Driving off, losing the stars, or outrunning 30 m ends it — fair.
+  let bustNear = false;
+  for (let i = officers.length - 1; i >= 0; i--) {
+    const off = officers[i], om = off.mesh.position;
+    const d = dist2d(om.x, om.z, player.mesh.position.x, player.mesh.position.z);
+    if (S.driving || S.wanted === 0 || d > 30) {
+      scene.remove(off.mesh); officers.splice(i, 1);
+      for (const c of cruisers) if (c.officer === off) c.officer = null;
+      continue;
+    }
+    if (d > 2.3) {
+      const h = headingTo(om.x, om.z, player.mesh.position.x, player.mesh.position.z);
+      om.x += Math.sin(h) * 3.4 * dt; om.z += Math.cos(h) * 3.4 * dt;
+      off.mesh.rotation.y = h;
+      animatePed(off.mesh, 3.4, dt, 0);
+    } else { bustNear = true; animatePed(off.mesh, 0, dt, 0); }
+  }
+  if (bustNear && !S.driving) {
+    S.bustT = (S.bustT || 0) + dt;
+    showPrompt('PETUGAS MENANGKAPMU — lari!');
+    if (S.bustT >= 2.2) playerBusted();
+  } else S.bustT = Math.max(0, (S.bustT || 0) - dt * 1.5);
   // AIR ONE joins at four stars: an orbiting heli whose spotlight is a
   // promise — while it shines on you, the wanted level cannot decay.
   if (S.wanted >= 4) {
