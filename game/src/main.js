@@ -141,15 +141,17 @@ const CAR_NAMES = {
   coupe: 'RINTIK GT', cruiser: 'PATROLI POLRESTA', sedan: 'SEDAN KOTA', hatch: 'HATCHBACK',
 };
 
-// Damar spawns at the station with his crew in a loose triangle behind
-// him — the first frame of play already tells the crew story.
+// Damar spawns at the station ALONE (owner's call: a tailing crew read
+// as a bug, not companionship). The crew exist in the world only at
+// their job posts — Sari, Ujang and Ratna stand where their jobs are
+// given (Jobs 3/6/7) — and help by phone through the Z/X/C call-ins.
 const player = pedEntity('player', { shirt: 0x4a5548, pants: 0x22262e, capColor: 0x14181f }, 16, 178, Math.PI);
 player.mesh.userData.parts.torso.material.color.set(0x44513f); // the dark olive rain jacket is his silhouette
 giveGun(player.mesh, 'p9');
 const crewPeds = {
-  sari: pedEntity('crew', { shirt: 0xc2185b, pants: 0x23272e }, 13, 181),
-  ujang: pedEntity('crew', { shirt: 0xf2b134, pants: 0x2f3e46 }, 19, 181),
-  ratna: pedEntity('crew', { shirt: 0x00897b, pants: 0x1f2a44 }, 16, 184),
+  sari: pedEntity('crew', { shirt: 0xc2185b, pants: 0x23272e }, -30, -52, 0.6),
+  ujang: pedEntity('crew', { shirt: 0xf2b134, pants: 0x2f3e46 }, -46, 30, 2.4),
+  ratna: pedEntity('crew', { shirt: 0x00897b, pants: 0x1f2a44 }, 120, -120, -0.8),
 };
 const civs = [], gangs = [], traffics = [], parkeds = [], cruisers = [];
 let heli = null, heliPos = new T.Vector3(0, 60, 0);
@@ -416,7 +418,7 @@ function crewAbility(id) {
     } else hud.showToast('GANTI PLAT — plat cadangan terpasang');
   } else if (id === 'ujang') {
     if (playerCar) { playerCar.hp = Math.min(100, playerCar.hp + 55); hud.showToast('PERBAIKAN CEPAT — kondisi mobil pulih'); }
-    else { S.health = Math.min(100, S.health + 25); hud.showToast('PERBAIKAN CEPAT — Ujang menambal lukamu'); }
+    else { S.health = Math.min(100, S.health + 25); hud.showToast('PERBAIKAN CEPAT — tambalan darurat dari Ujang sampai'); }
   } else {
     S.pingT = 9;
     hud.showToast('MATA ELANG — Ratna menandai paket & polisi di sekeliling');
@@ -880,19 +882,13 @@ function updatePeds(dt) {
       animatePed(member.mesh, 0, dt, 0);
     }
   }
-  // The crew trails Damar in a loose V on foot and vanishes while he
-  // drives — three passengers would need a bigger story than this one.
-  const crewInOrder = [crewPeds.sari, crewPeds.ujang, crewPeds.ratna];
-  crewInOrder.forEach((member, i) => {
-    member.mesh.visible = !S.driving;
-    if (S.driving) return;
-    const back = new T.Vector3(Math.sin(player.mesh.rotation.y), 0, Math.cos(player.mesh.rotation.y));
-    const side = new T.Vector3(back.z, 0, -back.x);
-    const slotX = pp.x - back.x * (1.6 + i * 0.4) + side.x * (i - 1) * 1.5;
-    const slotZ = pp.z - back.z * (1.6 + i * 0.4) + side.z * (i - 1) * 1.5;
-    const gap = dist2d(member.mesh.position.x, member.mesh.position.z, slotX, slotZ);
-    walkToward(member, slotX, slotZ, gap > 6 ? 4.4 : 2.2, dt, gap < 0.5);
-  });
+  // The crew does NOT follow (owner's call). Each member simply idles
+  // at their job post across the city, waiting to give their job —
+  // and helps by phone via the Z/X/C call-in abilities.
+  for (const member of [crewPeds.sari, crewPeds.ujang, crewPeds.ratna]) {
+    member.mesh.visible = true;
+    animatePed(member.mesh, 0, dt, 0);
+  }
 }
 function walkToward(ped, destX, destZ, speed, dt, idle = false) {
   const pos = ped.mesh.position;
