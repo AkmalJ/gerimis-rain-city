@@ -76,16 +76,24 @@ export function installStaging(api) {
       api.setCam([1.5, 2.7, 27], [-3.5, 6.5, -42]);
     },
 
-    // VISTA — rev1b cover: the city itself is the subject. The owner
-    // bounced the chase framing as clutter ("berantakan") and asked
-    // for the opposite: a calm, wide establishing frame where GERIMIS
-    // reads as a whole open world — districts, landmarks, ambient
-    // traffic, rain. No wanted, no roadblock, no cone; the GT is one
-    // life detail among many. Probe rounds over the downtown, station
-    // and jalur overlooks settled on Pasar Kabut: the legible pink
-    // sign, the awning grid, umbrella shoppers in the aisles, towers
-    // standing behind the market and the street grid running out of
-    // frame — one breath that sells the whole rain city.
+    // VISTA — the cover family: the city itself is the subject. The
+    // owner bounced the chase framing as clutter ("berantakan") and
+    // asked for a calm, wide establishing frame where GERIMIS reads
+    // as a whole open world — districts, landmarks, ambient traffic,
+    // rain. No wanted, no roadblock, no cone; the GT is one life
+    // detail among many. Probes over the downtown, station and jalur
+    // overlooks settled on Pasar Kabut: the legible pink sign, the
+    // awning grid, umbrella shoppers in the aisles, towers behind.
+    //
+    // REV1C — recomposition. Take 2's single elevated framing read
+    // empty and disorganized (market small in a middle band, dead sky
+    // above, dead junction below), so the case now carries three
+    // designed framings, chosen with ?stage=vista&frame=a|b|c (no
+    // frame = the rev1b original). Four probe rounds fed the picks:
+    // every southern low shot fights the same physics — stall light
+    // pools sit on the stalls' north faces and the lamp line at
+    // x=180.4 spears aisle views — so each framing below is the
+    // survivor of its family, not a first guess.
     vista() {
       api.seedStats(SHOWCASE);
       api.startJobAt(5); // JOB 6 sits on offer — the panel reads calm
@@ -99,17 +107,43 @@ export function installStaging(api) {
         const shopper = api.pedEntity('civ', { umbrella: umbrellaPalette[i % umbrellaPalette.length] }, px, pz, Math.PI + (i % 2 ? 0.4 : -0.3));
         shopper.mesh.userData.holdsUmbrella = true;
       });
-      // The GT as a life detail on the market's south approach road,
-      // an angkot crossing the junction, a bajaj and a sedan on the
-      // frame streets — traffic, not a chase.
+      // Ambient traffic on the frame streets — movement, not a chase.
       heroCar.mesh.position.set(189.5, 0, -38);
       heroCar.mesh.rotation.y = 0;
       api.carEntity('angkot', 148, 1.5, Math.PI / 2, 'traffic', 0xffc400);
       api.carEntity('bajaj', 191.5, 92, Math.PI, 'traffic', 0xff9100);
       api.carEntity('sedan', 232, -1.5, -Math.PI / 2, 'traffic', 0x90a4ae);
-      // Elevated south-east of the market, looking across the stalls
-      // to the sign and the towers behind it.
-      api.setCam([214, 17, 112], [182, 3, 22]);
+
+      const frame = new URLSearchParams(location.search).get('frame');
+      if (frame === 'a') {
+        // A — low three-quarter from the x=190 street: the road and a
+        // bajaj waiting at the market mouth lead the eye in, the stall
+        // rows spread left and right, the sign closes the vista.
+        api.carEntity('bajaj', 192.5, 69, Math.PI, 'traffic', 0xff9100);
+        const crosser = api.pedEntity('civ', { umbrella: 0xc62828 }, 186, 74, -Math.PI / 2);
+        crosser.mesh.userData.holdsUmbrella = true;
+        api.setCam([195, 3.0, 81], [180, 5.4, 19]);
+      } else if (frame === 'b') {
+        // B — medium height from the south-east: the market fills two
+        // thirds of the frame in ordered rows, the sign rides large
+        // above it, and the GT waits on the wet street in the near
+        // foreground with its headlights pooling on the asphalt.
+        heroCar.mesh.position.set(206, 0, 74);
+        heroCar.mesh.rotation.y = -0.3;
+        api.carEntity('bajaj', 192.5, 69, Math.PI, 'traffic', 0xff9100);
+        api.carEntity('angkot', 198, 93.5, -Math.PI / 2, 'traffic', 0xffc400);
+        api.setCam([214, 8.5, 92], [182, 3, 24]);
+      } else if (frame === 'c') {
+        // C — diagonal elevated from the south-west: the market runs
+        // corner to corner, the GT idles on the south street, towers
+        // stand behind the sign.
+        heroCar.mesh.position.set(189.5, 0, 71);
+        api.setCam([152, 9.5, 94], [197, 3, 33]);
+      } else {
+        // Elevated south-east of the market, looking across the stalls
+        // to the sign and the towers behind it (the rev1b original).
+        api.setCam([214, 17, 112], [182, 3, 22]);
+      }
     },
 
     // DUEL — a Pasar Kabut aisle gunfight. Hero west aiming east, three
