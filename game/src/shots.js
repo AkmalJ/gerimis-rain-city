@@ -105,17 +105,31 @@ export function installStaging(api) {
     // read at thumbnail size. An angkot waits at the west mouth and
     // umbrella shoppers thread the aisle — life at the edges.
     //
-    // REV1E — the owner's next word, and the current default: frame
-    // d fixed the sign and the closeness but shows ONE lane, not a
-    // city — its middle is a dark empty street. "Harus nampilin isi
-    // kota, biar kelihatan hidup dan kelihatan open world-nya": the
-    // cover must display the CONTENTS of the city. Frame e pulls
-    // back up to a medium three-quarter (~10.5 m) over the market's
-    // south junction and fills EVERY depth layer: staged dense
-    // traffic on the foreground streets, the market full of
-    // shoppers in the midground, the sign closing the vista as the
-    // focal, towers and rain behind. Nothing in frame is scenery
-    // alone — every layer carries vehicles, people or signage.
+    // REV1E — the owner's next word: frame d fixed the sign and the
+    // closeness but shows ONE lane, not a city — its middle is a
+    // dark empty street. "Harus nampilin isi kota, biar kelihatan
+    // hidup dan kelihatan open world-nya": the cover must display
+    // the CONTENTS of the city. Frame e pulls back up to a medium
+    // three-quarter (~10.5 m) over the market's south junction and
+    // fills EVERY depth layer: staged dense traffic on the foreground
+    // streets, the market full of shoppers in the midground, the
+    // sign closing the vista as the focal, towers and rain behind.
+    //
+    // REV1F — the owner changed the SUBJECT and the parent changed
+    // the LIGHT, and this is the current default. Five market takes
+    // all died on the same two facts: the market's slab grid reads
+    // scattered from every angle, and the night palette is ~60%
+    // black (black sky, black streets), so every frame felt empty
+    // however it was composed. Frame f is a station postcard: the
+    // FRONT of Stasiun Kota from its forecourt street — facade and
+    // amber STASIUN KOTA sign as the landmark centre, the lit night
+    // train nosing past the facade's west edge, angkot/bajaj/sedan
+    // traffic on Jalan Stasiun, umbrella peds on the forecourt, the
+    // red GT waiting at the front — all of it under a BLUE HOUR:
+    // staging lifts the sky to a deep rainy blue with a lighter fog
+    // horizon and raises the ambient/hemisphere base so facades,
+    // vehicles and asphalt read WITH COLOUR while the neon pops
+    // against the blue instead of drowning in black.
     vista() {
       api.seedStats(SHOWCASE);
       api.startJobAt(5); // JOB 6 sits on offer — the panel reads calm
@@ -182,8 +196,8 @@ export function installStaging(api) {
           shopper.mesh.userData.holdsUmbrella = true;
         });
         api.setCam([176.5, 3.4, 64], [180, 5.3, 19]);
-      } else {
-        // E (default) — the full-city cover, rev1e. Medium
+      } else if (frame === 'e') {
+        // E — the full-city cover, rev1e. Medium
         // three-quarter over the market's south junction, every
         // depth layer filled: a staged rush on the foreground
         // streets (angkot, truk sayur, sedan, bajaj around the GT),
@@ -215,6 +229,71 @@ export function installStaging(api) {
           shopper.mesh.userData.holdsUmbrella = true;
         });
         api.setCam([208, 10, 90], [186, 2.5, 26]);
+      } else {
+        // F (default) — the station postcard at blue hour, rev1f.
+        // BLUE HOUR first: repaint the sky a deep rainy blue, lift
+        // the fog to a lighter steel blue (distance melts into a
+        // horizon glow instead of black), and raise the ambient /
+        // hemisphere / moon base so every Phong surface reads with
+        // colour. Staging-only: plain play never runs this branch.
+        scene.background = new T.Color(0x1e3a63);
+        scene.fog.color.set(0x39598c);
+        scene.fog.density = 0.0021;
+        scene.traverse(o => {
+          if (o.isAmbientLight) { o.color.set(0x5f7fb4); o.intensity = 1.15; }
+          else if (o.isHemisphereLight) { o.color.set(0x51749f); o.groundColor.set(0x141c2a); o.intensity = 0.9; }
+          else if (o.isDirectionalLight) { o.color.set(0xa8c8f0); o.intensity = 0.75; }
+        });
+        // The station's own billboard was hung facing the platform:
+        // from the street its texture reads mirrored. Staging hangs
+        // a twin over it, street-facing, drawn with the same canvas
+        // recipe (amber 900-weight title, pale sub-line, hot core) —
+        // plain play keeps the original board untouched.
+        const signCv = document.createElement('canvas'); signCv.width = 1024; signCv.height = 256;
+        const sctx = signCv.getContext('2d');
+        sctx.fillStyle = '#171003'; sctx.fillRect(0, 0, 1024, 256);
+        sctx.textAlign = 'center'; sctx.textBaseline = 'middle';
+        sctx.shadowColor = '#ffb347'; sctx.shadowBlur = 42;
+        sctx.fillStyle = '#ffb347';
+        sctx.font = '900 118px Arial, sans-serif';
+        sctx.fillText('STASIUN KOTA', 512, 104);
+        sctx.shadowBlur = 18; sctx.fillText('STASIUN KOTA', 512, 104);
+        sctx.font = '700 54px Arial, sans-serif';
+        sctx.fillStyle = '#eaf6ff'; sctx.shadowBlur = 10;
+        sctx.fillText('KERETA MALAM • LOKET 24 JAM', 512, 200);
+        const signTwin = new T.Mesh(
+          new T.PlaneGeometry(20, 5),
+          new T.MeshBasicMaterial({ map: new T.CanvasTexture(signCv), side: T.DoubleSide })
+        );
+        signTwin.position.set(45, 15.4, 227.15);
+        signTwin.rotation.y = Math.PI;
+        scene.add(signTwin);
+        // Damar on the forecourt, back to the street, facing his
+        // station; the GT waits at the front doors as a life detail.
+        player.mesh.position.set(40, 0, 206);
+        player.mesh.rotation.y = 0;
+        heroCar.mesh.position.set(59, 0, 210);
+        heroCar.mesh.rotation.y = -0.35;
+        // Forecourt life: a drop-off angkot nosed toward the doors,
+        // a bajaj waiting by the arches, umbrella peds crossing the
+        // apron between the light pools.
+        const dropOff = api.carEntity('angkot', 24, 211, 0, 'traffic', 0xffc400); dropOff.speed = 0;
+        const waitBajaj = api.carEntity('bajaj', 36, 215, Math.PI, 'traffic', 0xff9100); waitBajaj.speed = 0;
+        [[18, 206], [29, 217], [47, 218], [52, 204], [66, 215], [71, 205], [12, 200], [80, 201]].forEach(([px, pz], i) => {
+          const walker = api.pedEntity('civ', { umbrella: umbrellaPalette[i % umbrellaPalette.length] }, px, pz, (i % 2 ? -0.4 : 0.35));
+          walker.mesh.userData.holdsUmbrella = true;
+        });
+        // Jalan Stasiun traffic (the z=190 road): an eastbound
+        // angkot and a westbound sedan, headlights pooling on the
+        // wet asphalt in the near foreground.
+        const roadA = api.carEntity('angkot', 82, 193.5, Math.PI / 2, 'traffic', 0xffc400); roadA.speed = 0;
+        const roadS = api.carEntity('sedan', -6, 186.5, -Math.PI / 2, 'traffic', 0x90a4ae); roadS.speed = 0;
+        // Near-frontal from over the forecourt street, the probe
+        // winner: the facade and its six amber arches fill the
+        // centre with the (twin) sign riding above them, towers at
+        // both frame edges, traffic and umbrella peds filling the
+        // foreground apron and the road below.
+        api.setCam([6, 9, 174], [46, 8, 233]);
       }
     },
 
