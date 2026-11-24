@@ -320,27 +320,10 @@ export function installStaging(api) {
           else if (o.isHemisphereLight) { o.color.set(0x51749f); o.groundColor.set(0x141c2a); o.intensity = 0.9; }
           else if (o.isDirectionalLight) { o.color.set(0xa8c8f0); o.intensity = 0.75; }
         });
-        // Sign twin, same recipe as f: the game's own board faces
-        // the platform and reads mirrored from the street.
-        const signCv = document.createElement('canvas'); signCv.width = 1024; signCv.height = 256;
-        const sctx = signCv.getContext('2d');
-        sctx.fillStyle = '#171003'; sctx.fillRect(0, 0, 1024, 256);
-        sctx.textAlign = 'center'; sctx.textBaseline = 'middle';
-        sctx.shadowColor = '#ffb347'; sctx.shadowBlur = 42;
-        sctx.fillStyle = '#ffb347';
-        sctx.font = '900 118px Arial, sans-serif';
-        sctx.fillText('STASIUN KOTA', 512, 104);
-        sctx.shadowBlur = 18; sctx.fillText('STASIUN KOTA', 512, 104);
-        sctx.font = '700 54px Arial, sans-serif';
-        sctx.fillStyle = '#eaf6ff'; sctx.shadowBlur = 10;
-        sctx.fillText('KERETA MALAM • LOKET 24 JAM', 512, 200);
-        const signTwin = new T.Mesh(
-          new T.PlaneGeometry(20, 5),
-          new T.MeshBasicMaterial({ map: new T.CanvasTexture(signCv), side: T.DoubleSide })
-        );
-        signTwin.position.set(45, 15.4, 227.15);
-        signTwin.rotation.y = Math.PI;
-        scene.add(signTwin);
+        // No sign twin in this frame anymore: the game now carries
+        // its own street-facing STASIUN KOTA board on the facade
+        // band (b2263e1). The old roofline twin only duplicated it —
+        // clipped by the parapet, masking the real sign.
         // Backdrop skyline in the game's own tower recipe (canvas
         // window grid, emissive map, downtown facade tones): a
         // packed wall of towers behind the station and flanking
@@ -394,10 +377,9 @@ export function installStaging(api) {
         cornice.position.set(45, 13.4, 232); scene.add(cornice);
         const frieze = new T.Mesh(new T.BoxGeometry(68, 0.35, 9.7), new T.MeshBasicMaterial({ color: 0xffb347 }));
         frieze.position.set(45, 12.6, 232); scene.add(frieze);
-        const canopy = new T.Mesh(new T.BoxGeometry(62, 0.55, 5.5), stone);
-        canopy.position.set(45, 9.3, 225.6); scene.add(canopy);
-        const canopyGlow = new T.Mesh(new T.BoxGeometry(62, 0.16, 5.5), new T.MeshBasicMaterial({ color: 0xffc46b }));
-        canopyGlow.position.set(45, 8.95, 225.6); scene.add(canopyGlow);
+        // No staging canopy either: from this low camera its slab
+        // crossed the game's facade sign and hid the sub-line. The
+        // game's own entrance canopy carries the depth now.
         for (const px of [16, 30, 60, 74]) {
           const col = new T.Mesh(new T.CylinderGeometry(0.14, 0.14, 9, 6), stoneDark);
           col.position.set(px, 4.5, 223.4); scene.add(col);
@@ -410,10 +392,9 @@ export function installStaging(api) {
           const pcol = new T.Mesh(new T.BoxGeometry(1.9, 11, 2.1), stone);
           pcol.position.set(px, 5.5, 227.2); scene.add(pcol);
         }
-        const lintel = new T.Mesh(new T.BoxGeometry(17.3, 1.6, 2.1), stone);
-        lintel.position.set(45.5, 10.7, 227.2); scene.add(lintel);
-        const lintelGlow = new T.Mesh(new T.BoxGeometry(17.3, 0.3, 2.2), new T.MeshBasicMaterial({ color: 0xffb347 }));
-        lintelGlow.position.set(45.5, 9.75, 227.2); scene.add(lintelGlow);
+        // No portal lintel: it stood exactly over the game's own
+        // facade-band STASIUN KOTA sign (y 10.35) and hid its title
+        // from this camera. The portal columns alone frame the door.
         const apron = new T.Mesh(new T.BoxGeometry(66, 0.35, 3), new T.MeshPhongMaterial({ color: 0x39424e, shininess: 50, specular: 0x77879f }));
         apron.position.set(45, 0.18, 221.5); scene.add(apron);
         const apronLine = new T.Mesh(new T.BoxGeometry(66, 0.1, 0.4), new T.MeshBasicMaterial({ color: 0xffb347 }));
