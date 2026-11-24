@@ -254,13 +254,21 @@ const parcelMeshes = [];
 // Two tall beams share one maker: gold for objectives, cyan for races.
 function makeBeam(color) {
   const beam = new T.Mesh(
-    new T.CylinderGeometry(0.9, 1.4, 42, 10, 1, true),
-    new T.MeshBasicMaterial({ color, transparent: true, opacity: 0.4, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide }));
+    new T.CylinderGeometry(1.3, 2.1, 46, 10, 1, true),
+    new T.MeshBasicMaterial({ color, transparent: true, opacity: 0.52, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide }));
   beam.visible = false;
   scene.add(beam);
   return beam;
 }
 const objBeam = makeBeam(0xffd54f);
+// A pulsing ground ring under the objective beam: the beam says
+// "somewhere over there", the ring says "stand HERE".
+const objRing = new T.Mesh(
+  new T.RingGeometry(2.6, 3.4, 28),
+  new T.MeshBasicMaterial({ color: 0xffd54f, transparent: true, opacity: 0.75, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide }));
+objRing.rotation.x = -Math.PI / 2;
+objRing.visible = false;
+scene.add(objRing);
 const raceBeam = makeBeam(0x00e5ff);
 
 // ---------------- input ----------------
@@ -613,13 +621,18 @@ function completeJob() {
 }
 function updateMissions(dt) {
   const job = currentJob();
-  if (!job) { objBeam.visible = false; return; }
+  if (!job) { objBeam.visible = false; objRing.visible = false; return; }
   // Keep the objective beam standing over whatever matters now.
   const objective = objectivePos();
   if (objective) {
     objBeam.visible = S.mode === 'play';
-    objBeam.position.set(objective.x, 21, objective.z);
+    objBeam.position.set(objective.x, 23, objective.z);
     objBeam.material.color.set(S.jobState === 'offer' ? 0xffd54f : 0x00e5ff);
+    objRing.visible = S.mode === 'play';
+    objRing.position.set(objective.x, 0.12, objective.z);
+    objRing.material.color.copy(objBeam.material.color);
+    const pulse = 1 + Math.sin(performance.now() * 0.005) * 0.18;
+    objRing.scale.setScalar(pulse);
   }
   const anchor = S.driving && playerCar ? playerCar.mesh.position : player.mesh.position;
   if (S.jobState === 'offer') {
@@ -1054,6 +1067,7 @@ function hudState() {
     dialogue: S.dialogue, driving: S.driving, speedKmh: S.speedKmh, vehicleName: S.vehicleName, carHealth: S.carHealth,
     playerPos: anchor, playerHeading: S.driving && playerCar ? playerCar.heading : player.mesh.rotation.y,
     objective: objectivePos(),
+    objDist: (() => { const o = objectivePos(); return o ? Math.round(dist2d(anchor.x, anchor.z, o.x, o.z)) : null; })(),
     copDots: cruisers.map(c => ({ x: c.mesh.position.x, z: c.mesh.position.z })),
     stats: { jobsDone, packagesGot: S.packagesGot.size, racesWon, carsLifted: S.lifted },
     raceBest: S.raceBest,

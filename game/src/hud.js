@@ -78,7 +78,7 @@ export class HUD {
       this.paint('mst', n.mStage, `TAHAP ${S.stageIdx + 1}/${S.job.stages.length}`);
       this.paint('mt', n.mTitle, S.job.title);
       this.paint('mo', n.mObj, S.stage ? S.stage.obj : '');
-      this.paint('mn', n.mNext, S.stage ? ('BERIKUTNYA  ' + S.stage.next) : '');
+      this.paint('mn', n.mNext, S.stage ? ('BERIKUTNYA  ' + S.stage.next + (S.objDist != null ? `  •  ${S.objDist} m` : '')) : '');
       const segHtml = S.job.stages.map((_, i) => `<span class="seg${i < S.stageIdx ? ' done' : i === S.stageIdx ? ' now' : ''}"></span>`).join('');
       if (this.shown.segs !== segHtml) { this.shown.segs = segHtml; n.mSegs.innerHTML = segHtml; }
     } else n.mission.style.display = 'none';
@@ -189,9 +189,14 @@ export class HUD {
       a = project(-380, line); b = project(380, line);
       m.beginPath(); m.moveTo(a[0], a[1]); m.lineTo(b[0], b[1]); m.stroke();
     }
-    // Objective diamond.
+    // Objective diamond — clamped to the rim when the target is off
+    // the map's range, so it ALWAYS shows the direction to head
+    // (Job 1's angkot sits ~250 m from spawn: off a 230 m map, the
+    // old code clipped the diamond away entirely).
     if (S.objective) {
-      const [ox, oy] = project(S.objective.x, S.objective.z);
+      let [ox, oy] = project(S.objective.x, S.objective.z);
+      const dx = ox - MID, dy = oy - MID, rr = Math.hypot(dx, dy), RIM = MID - 11;
+      if (rr > RIM) { ox = MID + dx / rr * RIM; oy = MID + dy / rr * RIM; }
       m.fillStyle = '#ffd54f';
       m.save(); m.translate(ox, oy); m.rotate(Math.PI / 4); m.fillRect(-5, -5, 10, 10); m.restore();
     }
