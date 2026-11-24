@@ -1,40 +1,46 @@
-// GERIMIS — side activities: three street races and twelve lost parcels.
-// One job: hold the optional content as data + tiny queries.
+// GERIMIS — side activities: three street races + twelve lost parcels.
+//
+// The story jobs live in missions.js; everything optional lives here.
+// Races are checkpoint chains with a par time (seconds). Parcels are the
+// twelve "paket kiriman hilang" scattered off the main roads, each with
+// a spoken-style hint the HUD can surface.
 
+// Small factories keep the tables below terse and uniform.
+const race = (id, name, par, start, heading, checkpoints) =>
+  ({ id, name, par, start, heading, checkpoints });
+const parcel = (id, at, hint) => ({ id, at, hint });
+
+// ------------------------------------------------------------- races
+// TURUNAN KABUT runs the fog highway west; KELILING TERMINAL loops the
+// terminal block; SPRINT JALUR BASAH crosses the southern avenues.
 export const RACES = [
-  {
-    id: 'turunan', name: 'TURUNAN KABUT', par: 46,
-    start: [285, -190], heading: -Math.PI / 2,
-    checkpoints: [[190, -190], [95, -190], [0, -190], [-95, -190], [-190, -190]],
-  },
-  {
-    id: 'terminal', name: 'KELILING TERMINAL', par: 38,
-    start: [-285, 0], heading: 0,
-    checkpoints: [[-190, 0], [-190, 95], [-285, 95], [-285, 0]],
-  },
-  {
-    id: 'sprint', name: 'SPRINT JALUR BASAH', par: 40,
-    start: [0, 285], heading: Math.PI,
-    checkpoints: [[0, 190], [0, 95], [95, 95], [190, 95], [285, 95]],
-  },
+  race('turunan', 'TURUNAN KABUT', 46, [285, -190], -Math.PI / 2,
+    [[190, -190], [95, -190], [0, -190], [-95, -190], [-190, -190]]),
+  race('terminal', 'KELILING TERMINAL', 38, [-285, 0], 0,
+    [[-190, 0], [-190, 95], [-285, 95], [-285, 0]]),
+  race('sprint', 'SPRINT JALUR BASAH', 40, [0, 285], Math.PI,
+    [[0, 190], [0, 95], [95, 95], [190, 95], [285, 95]]),
 ];
 
-export function raceById(id) { return RACES.find(r => r.id === id) || null; }
+export function raceById(id) {
+  const found = RACES.find(r => r.id === id);
+  return found === undefined ? null : found;
+}
 
-// Twelve lost delivery parcels ("paket kiriman hilang") hidden around the city.
+// ------------------------------------------------------------- parcels
 export const PACKAGES = [
-  { id: 0, at: [-216, 66], hint: 'di bawah atap Terminal Basah' },
-  { id: 1, at: [226, 30], hint: 'di antara kios Pasar Kabut' },
-  { id: 2, at: [86, 240], hint: 'di ujung peron Stasiun Kota' },
-  { id: 3, at: [-238, -238], hint: 'di sudut Kampung Atas' },
-  { id: 4, at: [272, -238], hint: 'di bahu Jalur Kabut' },
-  { id: 5, at: [-38, -38], hint: 'di gang belakang Hotel Gerimis' },
-  { id: 6, at: [104, -104], hint: 'di persimpangan lampu neon' },
-  { id: 7, at: [-104, 104], hint: 'di dekat pohon beringin kota' },
-  { id: 8, at: [8, -272], hint: 'di ujung jalan utara' },
-  { id: 9, at: [-272, -8], hint: 'di tepi barat kota' },
-  { id: 10, at: [150, 150], hint: 'di blok perumahan tenggara' },
-  { id: 11, at: [-150, 250], hint: 'di dekat rel selatan' },
+  parcel(0,  [-216, 66],   'di bawah atap Terminal Basah'),
+  parcel(1,  [226, 30],    'di antara kios Pasar Kabut'),
+  parcel(2,  [86, 240],    'di ujung peron Stasiun Kota'),
+  parcel(3,  [-238, -238], 'di sudut Kampung Atas'),
+  parcel(4,  [272, -238],  'di bahu Jalur Kabut'),
+  parcel(5,  [-38, -38],   'di gang belakang Hotel Gerimis'),
+  parcel(6,  [104, -104],  'di persimpangan lampu neon'),
+  parcel(7,  [-104, 104],  'di dekat pohon beringin kota'),
+  parcel(8,  [8, -272],    'di ujung jalan utara'),
+  parcel(9,  [-272, -8],   'di tepi barat kota'),
+  parcel(10, [150, 150],   'di blok perumahan tenggara'),
+  parcel(11, [-150, 250],  'di dekat rel selatan'),
 ];
 
 export function packageAt(idx) { return PACKAGES[idx] || null; }
