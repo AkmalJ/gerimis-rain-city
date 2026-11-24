@@ -169,6 +169,7 @@ civSpots.forEach(([sx, sz], i) => {
     hood: Math.random() < 0.4,
   }, sx + rand(-6, 6), sz + rand(-6, 6), rand(0, 6.3));
   if (civ.mesh.userData.parts && withUmbrella) civ.mesh.userData.holdsUmbrella = true;
+  civ.homeX = sx; civ.homeZ = sz; civ.homeR = 17;
   civs.push(civ);
 });
 // Anak Kabut hold two corners of the map even before any job starts.
@@ -231,6 +232,15 @@ const umbrellaPalette2 = [0xd81b60, 0x00897b, 0xf9a825, 0x3949ab, 0xc62828, 0x6a
  [2, 186], [-15, 189], [31, 189], [-31, 181], [8, 168], [-6, 158]].forEach(([sx, sz], i) => {
   const civ = pedEntity('civ', { umbrella: umbrellaPalette2[i % umbrellaPalette2.length] }, sx, sz, rand(0, 6.3));
   if (civ.mesh.userData.parts) civ.mesh.userData.holdsUmbrella = true;
+  civ.homeX = sx; civ.homeZ = sz; civ.homeR = 15;
+  civs.push(civ);
+});
+// Inside the station hall (P2): waiting passengers, no umbrellas —
+// they queue at the loket and drift between the benches, homed tight
+// so the hall stays populated instead of leaking into the city.
+[[24, 233], [40, 237], [58, 234], [66, 237.5], [33, 231]].forEach(([sx, sz]) => {
+  const civ = pedEntity('civ', { hood: Math.random() < 0.5 }, sx, sz, rand(0, 6.3));
+  civ.homeX = sx; civ.homeZ = sz; civ.homeR = 4;
   civs.push(civ);
 });
 
@@ -853,8 +863,9 @@ function updatePeds(dt) {
     civ.wanderT -= dt;
     if (civ.wanderT <= 0) {
       civ.wanderT = rand(2.5, 6);
-      civ.tx = civ.mesh.position.x + rand(-16, 16);
-      civ.tz = civ.mesh.position.z + rand(-16, 16);
+      const hr = civ.homeR || 16, hx = civ.homeX != null ? civ.homeX : civ.mesh.position.x, hz = civ.homeZ != null ? civ.homeZ : civ.mesh.position.z;
+      civ.tx = hx + rand(-hr, hr);
+      civ.tz = hz + rand(-hr, hr);
     }
     const panic = (firing || S.wanted >= 3) && dist2d(civ.mesh.position.x, civ.mesh.position.z, pp.x, pp.z) < 22;
     const destX = panic ? civ.mesh.position.x + (civ.mesh.position.x - pp.x) : civ.tx;

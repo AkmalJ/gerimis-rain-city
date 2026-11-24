@@ -638,13 +638,76 @@ function buildStasiun(world) {
   streetLamp(world, 26, 221);
   streetLamp(world, 64, 221);
   const facadeMat = new T.MeshPhongMaterial({ color: 0x2c3644, shininess: 30 });
-  const facade = new T.Mesh(new T.BoxGeometry(66, 13, 8), facadeMat);
-  facade.position.set(cx, 6.5, cz); world.add(facade);
-  // Six glowing arches along the front, each pooling light on the street.
+  // THE HALL IS A PLACE NOW (P2): the front wall is built as segments
+  // with three real doorways (x 29 / 45 / 62, 4.4 wide, 5.2 tall), so
+  // the player walks IN — loket counters, a departure board, bench
+  // rows and warm light inside, and doors through the back wall onto
+  // the platform. From the street the wall reads exactly as before.
+  const DOORS = [29, 45, 62];
+  const wallSegs = [[12, 26.8], [31.2, 42.8], [47.2, 59.8], [64.2, 78]];
+  for (const [x0, x1] of wallSegs) {
+    const seg = new T.Mesh(new T.BoxGeometry(x1 - x0, 13, 1.2), facadeMat);
+    seg.position.set((x0 + x1) / 2, 6.5, cz - 3.4); world.add(seg);
+    addCollider((x0 + x1) / 2, cz - 3.4, (x1 - x0) / 2, 0.7);
+  }
+  for (const dx of DOORS) {
+    const lintel = new T.Mesh(new T.BoxGeometry(4.4, 7.8, 1.2), facadeMat);
+    lintel.position.set(dx, 9.1, cz - 3.4); world.add(lintel);
+  }
+  // Interior shell: side walls, a ceiling, and a back wall with two
+  // doors of its own opening onto the platform.
+  for (const sx of [12.6, 77.4]) {
+    const side = new T.Mesh(new T.BoxGeometry(1.2, 7.5, 11.5), facadeMat);
+    side.position.set(sx, 3.75, cz + 2.9); world.add(side);
+    addCollider(sx, cz + 2.9, 0.7, 5.7);
+  }
+  const ceil = new T.Mesh(new T.BoxGeometry(66, 0.4, 12), new T.MeshPhongMaterial({ color: 0x1c242f, shininess: 20 }));
+  ceil.position.set(cx, 7.6, cz + 2.9); world.add(ceil);
+  for (const [x0, x1] of [[12, 26.8], [31.2, 59.8], [64.2, 78]]) {
+    const seg = new T.Mesh(new T.BoxGeometry(x1 - x0, 7.5, 0.8), facadeMat);
+    seg.position.set((x0 + x1) / 2, 3.75, cz + 8.2); world.add(seg);
+    addCollider((x0 + x1) / 2, cz + 8.2, (x1 - x0) / 2, 0.5);
+  }
+  for (const dx of [29, 62]) {
+    const lintel = new T.Mesh(new T.BoxGeometry(4.4, 2.3, 0.8), facadeMat);
+    lintel.position.set(dx, 6.35, cz + 8.2); world.add(lintel);
+  }
+  const hallFloor = new T.Mesh(new T.BoxGeometry(64, 0.08, 11.4), new T.MeshPhongMaterial({ color: 0x323e4e, shininess: 80, specular: 0x77879f }));
+  hallFloor.position.set(cx, 0.05, cz + 2.9); world.add(hallFloor);
+  // Loket row along the back wall + the departure board above it.
+  for (const [lx, label] of [[24, 'LOKET 1'], [36, 'LOKET 2'], [48, 'LOKET 3']]) {
+    const counter = new T.Mesh(new T.BoxGeometry(5, 1.15, 1), new T.MeshPhongMaterial({ color: 0x4a3b2c, shininess: 40 }));
+    counter.position.set(lx, 0.58, cz + 6.9); world.add(counter);
+    addCollider(lx, cz + 6.9, 2.5, 0.6);
+    neonSign(world, label, null, '#00e5ff', '#0a141c', 4.6, lx, 2.7, cz + 6.3, Math.PI);
+  }
+  neonSign(world, 'KEBERANGKATAN', 'MALAM 19:42 • PAGI 06:10 • KERETA MALAM', '#ffd54f', '#101319', 13, cx + 14, 5.4, cz + 7.7, Math.PI);
+  // Bench rows in the waiting hall.
+  for (const [bx, bz] of [[20, cz + 1.5], [36, cz + 1.5], [56, cz + 1.5], [70, cz + 1.5], [36, cz + 4.6], [56, cz + 4.6]]) {
+    const bench = new T.Mesh(new T.BoxGeometry(3.4, 0.5, 0.8), new T.MeshPhongMaterial({ color: 0x4a5a6a }));
+    bench.position.set(bx, 0.4, bz); world.add(bench);
+    addCollider(bx, bz, 1.7, 0.45);
+  }
+  // Warm interior light + spill pools in every doorway, both sides.
+  const hallLight = new T.PointLight(0xffb46b, 0.95, 58);
+  hallLight.position.set(cx, 5.6, cz + 3); world.add(hallLight);
+  for (const dx of DOORS) {
+    lightPool(world, dx, cz - 1.2, 6.5, 0xffb347, 0.4);
+    glowSprite(world, dx, 2.8, cz - 2.6, 3.2, 0xffc46b, 0.6);
+  }
+  // Six glowing arches along the front, each pooling light on the
+  // street. Over the three doorways the arch becomes a transom band
+  // so the opening below it stays truly open.
   for (let i = 0; i < 6; i++) {
-    const arch = new T.Mesh(new T.BoxGeometry(6, 8, 1), new T.MeshBasicMaterial({ color: 0xffc46b }));
-    arch.position.set(cx - 27 + i * 11, 4, cz - 4.4); world.add(arch);
-    lightPool(world, cx - 27 + i * 11, cz - 9, 7, 0xffb347, 0.3);
+    const ax = cx - 27 + i * 11;
+    if (DOORS.includes(ax)) {
+      const transom = new T.Mesh(new T.BoxGeometry(6, 2.8, 1), new T.MeshBasicMaterial({ color: 0xffc46b }));
+      transom.position.set(ax, 6.6, cz - 4.4); world.add(transom);
+    } else {
+      const arch = new T.Mesh(new T.BoxGeometry(6, 8, 1), new T.MeshBasicMaterial({ color: 0xffc46b }));
+      arch.position.set(ax, 4, cz - 4.4); world.add(arch);
+    }
+    lightPool(world, ax, cz - 9, 7, 0xffb347, 0.3);
   }
   // THE SIGN, twice: the original board faces the platform (+Z); this
   // second board is rotated PI so street-side players read STASIUN
@@ -743,7 +806,8 @@ function buildStasiun(world) {
   trainState.doorGlow = doorGlow;
   trainState.collider = { x: trainState.x, z: TRAIN_Z, hw: 32, hd: 2 };
   colliders.push(trainState.collider);
-  addCollider(cx, cz, 33, 4.5);
+  // (No whole-hall collider anymore: the segmented walls above carry
+  // their own, and the doorways between them are genuinely open.)
   // Two lit warung stalls at the plaza edges — the forecourt feeds people.
   warungStall(world, 6, 219, 0.5);
   warungStall(world, 86, 219, -0.5);
